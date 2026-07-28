@@ -190,3 +190,8 @@ button:hover {
 .danger-btn:hover {
   background: color-mix(in srgb, #dc2626 10%, transparent);
 }
+
+[hidden] {
+  display: none !important;
+}
+

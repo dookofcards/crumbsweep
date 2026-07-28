@@ -183,3 +183,8 @@ main {
   display: flex;
   gap: 6px;
 }
+
+[hidden] {
+  display: none !important;
+}
+
