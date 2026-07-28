@@ -66,19 +66,76 @@ Auto delete cookies. Keep the logins you choose. Sweep the rest.
 Automatically deletes site cookies (and, opt-in, related site data) when the
 site's last tab is closed, with user-managed whitelist/greylist exceptions.
 
-## Permission justifications (for the review form)
+## Permission justifications (one field per permission, max 1,000 chars each)
 
-- cookies + host access <all_urls>: enumerate and delete cookies for any
-  site the user browses; the extension's core function.
-- tabs: track which sites have open tabs to know when a site's last tab
-  closes; read the active tab's domain for the popup.
-- storage: persist settings, lists, counters, and pending-cleanup state.
-- alarms: fire the grace-period cleanup even if the service worker is
-  suspended (Manifest V3).
-- browsingData: opt-in removal of localStorage/IndexedDB/cache/service
-  workers for cleaned sites.
-- notifications (optional, runtime-requested): only if the user enables
-  "notify when a site is cleaned".
+### cookies
+
+CrumbSweep's single purpose is deleting a site's cookies after the user
+closes its last tab. This permission is the core of that function:
+chrome.cookies.getAll() enumerates the cookies of the site being cleaned (or
+shown in the popup), and chrome.cookies.remove() deletes them, across all
+cookie stores, including partitioned (CHIPS) cookies. Cookie data is
+enumerated only to be deleted — never read for any other purpose, stored, or
+transmitted. The extension makes no network requests of any kind.
+
+### tabs
+
+Used to detect the triggering event of the extension's single purpose: a
+site's last tab closing. The extension listens to tab open/close/navigation
+events and keeps a per-site count of open tabs so it can start the
+grace-period countdown when a count reaches zero, cancel it if the user
+reopens the site, and exempt sites with pinned tabs. It also reads the
+active tab's URL so the popup can show the current site's protection status.
+Only the URL's domain is used; browsing history is not recorded, stored
+beyond the open-tab bookkeeping, or transmitted.
+
+### storage
+
+Persists all extension state: user settings (grace period, opt-in data
+types, badge mode), the whitelist/greylist (in chrome.storage.sync so lists
+follow the user's own Chrome profile), cleaned-cookie counters, and internal
+bookkeeping (per-site open-tab counts and the pending-cleanup queue). This
+persistence is required under Manifest V3 because the service worker can be
+terminated at any time. All data stays in extension storage on the user's
+device; nothing is transmitted anywhere.
+
+### alarms
+
+Grace-period countdowns must survive service worker termination under
+Manifest V3. When a site's last tab closes, the cleanup's due time is
+persisted and a chrome.alarms alarm is scheduled to wake the service worker
+and perform the deletion even if the worker was killed mid-countdown. A
+setTimeout would silently die with the worker; alarms are the only reliable
+mechanism for this.
+
+### browsingData
+
+Used only for the optional "deeper clean" the user can enable in settings —
+removing localStorage, IndexedDB, cache, and service workers for the
+specific origins of a site being cleaned, via chrome.browsingData.remove()
+with an origins filter. All of these options are OFF by default; if the user
+enables none of them, this API is never called.
+
+### notifications
+
+Optional permission, requested at runtime only if the user turns on "Show a
+brief notification when a site is cleaned" in settings (off by default).
+Used solely to show that toast — the site name and number of cookies
+removed. If the user declines the permission prompt, the setting reverts and
+stays off.
+
+### Host permission (<all_urls>)
+
+Cookie deletion is the extension's single purpose, and chrome.cookies can
+only access cookies for hosts covered by host permissions. Because the user
+may close a tab for any website, cleaning requires <all_urls>. Narrower
+alternatives cannot work: activeTab is unusable because cleaning happens
+after the tab is closed (no active tab exists), and a fixed host list is
+impossible because the sites a user will visit cannot be known in advance.
+The extension injects no content scripts, reads no page content, uses no
+webRequest listeners, and makes zero network requests; host access is used
+exclusively to delete cookies and, opt-in, related site data. Full source
+code is public: https://github.com/dookofcards/crumbsweep
 
 ## Privacy policy URL
 
