@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>CrumbSweep Settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <header class="page-header">
+        <h1 id="ext-name">CrumbSweep</h1>
+        <span id="save-indicator" class="save-indicator" hidden>Saved ✓</span>
+      </header>
+
+      <section>
+        <h2>Grace period</h2>
+        <p class="hint">
+          How long to wait after a site's last tab closes before cleaning.
+          Reopening the site within this window cancels the clean.
+        </p>
+        <div class="slider-row">
+          <input id="grace-slider" type="range" min="0" max="300" step="5" />
+          <output id="grace-value" for="grace-slider"></output>
+        </div>
+      </section>
+
+      <section>
+        <h2>What gets cleaned</h2>
+        <p class="hint">
+          Cookies are always cleaned. The rest is opt-in: Chrome can only
+          remove these per-origin (not per-cookie), so they're off unless you
+          want a deeper clean.
+        </p>
+        <label class="check"
+          ><input type="checkbox" checked disabled /> Cookies (always)</label
+        >
+        <label class="check"
+          ><input id="opt-localstorage" type="checkbox" /> localStorage</label
+        >
+        <label class="check"
+          ><input id="opt-indexeddb" type="checkbox" /> IndexedDB</label
+        >
+        <label class="check"
+          ><input id="opt-cache" type="checkbox" /> Cache</label
+        >
+        <label class="check"
+          ><input id="opt-serviceworkers" type="checkbox" /> Service
+          workers</label
+        >
+      </section>
+
+      <section>
+        <h2>Toolbar badge</h2>
+        <p class="hint">Counter shown on the CrumbSweep icon.</p>
+        <label class="check"
+          ><input type="radio" name="badge-mode" value="today" /> Cookies
+          cleaned today</label
+        >
+        <label class="check"
+          ><input type="radio" name="badge-mode" value="site" /> Cookies
+          cleaned for the current site (all time)</label
+        >
+        <label class="check"
+          ><input type="radio" name="badge-mode" value="off" /> No badge</label
+        >
+      </section>
+
+      <section>
+        <h2>Notifications</h2>
+        <label class="check"
+          ><input id="opt-notify" type="checkbox" /> Show a brief notification
+          when a site is cleaned</label
+        >
+      </section>
+
+      <section>
+        <h2>Lists</h2>
+        <p class="hint">
+          <strong>Whitelist:</strong> never cleaned.
+          <strong>Greylist:</strong> kept until the browser restarts.
+          Entries match the whole site (all subdomains).
+        </p>
+        <div class="lists-grid">
+          <div class="list-panel">
+            <h3>Whitelist</h3>
+            <form id="white-form" class="add-row">
+              <input
+                id="white-input"
+                type="text"
+                placeholder="example.com"
+                spellcheck="false"
+              />
+              <button type="submit">Add</button>
+            </form>
+            <ul id="white-list" class="domain-list"></ul>
+          </div>
+          <div class="list-panel">
+            <h3>Greylist</h3>
+            <form id="grey-form" class="add-row">
+              <input
+                id="grey-input"
+                type="text"
+                placeholder="example.com"
+                spellcheck="false"
+              />
+              <button type="submit">Add</button>
+            </form>
+            <ul id="grey-list" class="domain-list"></ul>
+          </div>
+        </div>
+        <div class="io-row">
+          <button id="btn-import" type="button">Import…</button>
+          <button id="btn-export" type="button">Export JSON</button>
+          <input
+            id="import-file"
+            type="file"
+            accept=".json,.txt,application/json,text/plain"
+            hidden
+          />
+        </div>
+        <div id="import-choice" class="io-choice" hidden>
+          <span
+            >Found <span id="import-count">0</span> domains — add them to:</span
+          >
+          <button id="import-to-white" type="button">Whitelist</button>
+          <button id="import-to-grey" type="button">Greylist</button>
+          <button id="import-cancel" type="button">Cancel</button>
+        </div>
+        <p id="import-result" class="hint" hidden></p>
+        <p class="hint">
+          Import accepts CrumbSweep JSON, <strong>Cookie AutoDelete JSON
+          exports</strong> (whitelist &amp; greylist carry over automatically),
+          or a plain text file with one domain per line.
+        </p>
+      </section>
+
+      <section class="danger-zone">
+        <h2>Clean everything</h2>
+        <p class="hint">
+          Remove all cookies for all sites except whitelisted ones.
+          Greylisted sites <strong>are</strong> cleaned by this.
+        </p>
+        <button id="btn-clean-all" class="danger-btn">
+          Clean all cookies except whitelisted sites now
+        </button>
+        <p id="clean-all-result" class="hint" hidden></p>
+      </section>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>

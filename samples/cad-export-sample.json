@@ -1,0 +1,33 @@
+[
+  {
+    "expression": "github.com",
+    "listType": "WHITE",
+    "storeId": "default",
+    "cleanSiteData": []
+  },
+  {
+    "expression": "*.google.com",
+    "listType": "WHITE",
+    "storeId": "default"
+  },
+  {
+    "expression": "wikipedia.org",
+    "listType": "GREY",
+    "storeId": "firefox-container-1"
+  },
+  {
+    "expression": "sub.news.example.co.uk",
+    "listType": "GREY",
+    "storeId": "default"
+  },
+  {
+    "expression": "",
+    "listType": "WHITE"
+  },
+  {
+    "expression": "mozilla.org",
+    "listType": "UNKNOWN_TYPE"
+  },
+  "not-an-object",
+  { "listType": "WHITE" }
+]

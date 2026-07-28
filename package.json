@@ -1,0 +1,22 @@
+{
+  "name": "crumbsweep",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "package": "node build.mjs --prod"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.280",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "tldts": "^7.4.9"
+  }
+}

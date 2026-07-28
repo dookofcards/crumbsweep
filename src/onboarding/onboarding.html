@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Welcome to CrumbSweep</title>
+    <link rel="stylesheet" href="onboarding.css" />
+  </head>
+  <body>
+    <main>
+      <header class="hero">
+        <img src="../icons/icon128.png" alt="" width="56" height="56" />
+        <h1>Welcome to <span id="ext-name">CrumbSweep</span></h1>
+        <p class="tagline">
+          Cookies for a site are deleted shortly after you close its last tab
+          — unless the site is on your whitelist.
+        </p>
+      </header>
+
+      <section class="step">
+        <h2><span class="step-num">1</span> Sites you stay logged into? Whitelist them now.</h2>
+        <p class="hint">
+          Whitelisted sites are never cleaned. Here are the sites you have
+          open right now — click to protect them:
+        </p>
+        <div id="open-sites" class="chips"></div>
+        <form id="add-form" class="add-row">
+          <input
+            id="add-input"
+            type="text"
+            placeholder="Add another site, e.g. gmail.com"
+            spellcheck="false"
+          />
+          <button type="submit">Whitelist</button>
+        </form>
+      </section>
+
+      <section class="step">
+        <h2><span class="step-num">2</span> Switching from Cookie AutoDelete? Import your old list.</h2>
+        <p class="hint">
+          Your whitelist and greylist carry over automatically. Plain
+          one-domain-per-line text files work too (added to the whitelist).
+        </p>
+        <button id="btn-import" type="button">Import list file…</button>
+        <input
+          id="import-file"
+          type="file"
+          accept=".json,.txt,application/json,text/plain"
+          hidden
+        />
+        <p id="import-result" class="hint" hidden></p>
+      </section>
+
+      <section class="step">
+        <h2><span class="step-num">3</span> That's it.</h2>
+        <p class="hint">
+          Cookies for everything else get cleaned
+          <strong id="grace-text">15 seconds</strong> after you close a site's
+          last tab. Reopening in time cancels the clean. Tune the timing, a
+          greylist, and deeper cleaning in settings.
+        </p>
+        <button id="btn-settings" type="button">Open settings</button>
+      </section>
+    </main>
+    <script src="onboarding.js"></script>
+  </body>
+</html>

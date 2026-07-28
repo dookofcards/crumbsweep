@@ -1,0 +1,165 @@
+// Thin event-wiring layer only. All real logic lives in src/core/.
+// The service worker can be killed at any time; nothing here may rely on
+// in-memory state surviving between events — every handler re-reads
+// persisted state, and all mutations are serialized to avoid interleaved
+// read-modify-write on chrome.storage.
+import * as tracker from "../core/tabTracker.ts";
+import * as queue from "../core/cleanupQueue.ts";
+import { cleanAllCookiesExcept, cleanDomainFull } from "../core/cleaner.ts";
+import { getLists, listStatusFor } from "../core/lists.ts";
+import { updateBadge } from "../core/badge.ts";
+import { EXTENSION_NAME } from "../shared/constants.ts";
+import { getSettings } from "../shared/settings.ts";
+import { getPauseState, setPauseUntil } from "../shared/pause.ts";
+import type { Message, CleanNowResponse } from "../shared/messages.ts";
+import { serialized } from "../shared/lock.ts";
+
+const trackerEvents: tracker.TrackerEvents = {
+  domainEmptied: async (domain) => {
+    // While paused, tab closes don't even enqueue — resuming later must not
+    // retroactively clean sites that were closed during the pause.
+    if ((await getPauseState()).paused) return;
+    const settings = await getSettings();
+    await queue.enqueue(domain, settings.gracePeriodSeconds * 1000);
+  },
+  domainActive: (domain) => queue.cancel(domain),
+};
+
+async function notifyCleaned(domain: string, removed: number): Promise<void> {
+  const settings = await getSettings();
+  if (!settings.notifyOnClean || chrome.notifications === undefined) return;
+  try {
+    await chrome.notifications.create({
+      type: "basic",
+      iconUrl: chrome.runtime.getURL("icons/icon128.png"),
+      title: EXTENSION_NAME,
+      message: `Cleaned ${removed} cookie${removed === 1 ? "" : "s"} for ${domain}`,
+    });
+  } catch {
+    // permission revoked since the setting was enabled — never fail a clean over a toast
+  }
+}
+
+// Final gate before deletion. The open-tab re-check also enforces the
+// pinned-tab exemption: a pinned tab is an open tab, so its domain can
+// never reach this point while pinned.
+async function executeClean(domain: string): Promise<void> {
+  if ((await getPauseState()).paused) return;
+  if (await tracker.domainHasOpenTabs(domain)) return;
+  // Whitelisted: never clean. Greylisted: not on tab close — that list's
+  // contract is "clean on browser restart" (see onStartup below).
+  if ((await listStatusFor(domain)) !== null) return;
+  const removed = await cleanDomainFull(
+    domain,
+    await tracker.takeSeenOrigins(domain),
+  );
+  if (removed > 0) await notifyCleaned(domain, removed);
+  await updateBadge();
+}
+
+const processQueue = () =>
+  serialized(() => queue.processDue(executeClean));
+queue.setProcessor(processQueue);
+
+chrome.tabs.onCreated.addListener((tab) => {
+  if (tab.id === undefined) return;
+  const id = tab.id;
+  serialized(() =>
+    tracker.updateTab(id, tab.pendingUrl || tab.url, trackerEvents),
+  );
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.url === undefined) return;
+  serialized(() => tracker.updateTab(tabId, changeInfo.url, trackerEvents)).then(
+    updateBadge,
+  );
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  serialized(() => tracker.removeTab(tabId, trackerEvents));
+});
+
+chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
+  serialized(() => tracker.replaceTab(addedTabId, removedTabId, trackerEvents));
+});
+
+chrome.tabs.onActivated.addListener(() => void updateBadge());
+
+// Settings changes (badge mode, from the options page) should reflect on the
+// badge immediately. updateBadge only reads, so this can't loop.
+chrome.storage.onChanged.addListener((_changes, area) => {
+  if (area === "sync") void updateBadge();
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === queue.CLEANUP_ALARM) processQueue();
+});
+
+chrome.runtime.onMessage.addListener(
+  (message: Message, _sender, sendResponse) => {
+    // Popup "clean now": explicit user action — cleans immediately, ignoring
+    // open tabs and list membership.
+    if (message.type === "cleanDomainNow") {
+      serialized(async () =>
+        cleanDomainFull(
+          message.domain,
+          await tracker.takeSeenOrigins(message.domain),
+        ),
+      ).then(async (removed) => {
+        await updateBadge();
+        const response: CleanNowResponse = { removed };
+        sendResponse(response);
+      });
+      return true; // async response
+    }
+    if (message.type === "cleanAllExceptWhitelist") {
+      serialized(async () => {
+        const lists = await getLists();
+        return cleanAllCookiesExcept(new Set(lists.white));
+      }).then(async (removed) => {
+        await updateBadge();
+        const response: CleanNowResponse = { removed };
+        sendResponse(response);
+      });
+      return true;
+    }
+    if (message.type === "setPause") {
+      serialized(async () => {
+        await setPauseUntil(message.until);
+        // Pausing freezes everything already counting down.
+        if (message.until !== null) await queue.clearAll();
+        await updateBadge();
+      }).then(() => sendResponse({ ok: true }));
+      return true;
+    }
+    return undefined;
+  },
+);
+
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === "install") {
+    void chrome.tabs.create({
+      url: chrome.runtime.getURL("onboarding/onboarding.html"),
+    });
+  }
+});
+
+// The greylist contract: session-only trust, cleaned when the browser
+// starts (not when tabs close).
+chrome.runtime.onStartup.addListener(() => {
+  serialized(async () => {
+    if ((await getPauseState()).paused) return;
+    const lists = await getLists();
+    for (const domain of lists.grey) {
+      await cleanDomainFull(domain, await tracker.takeSeenOrigins(domain));
+    }
+  }).then(updateBadge);
+});
+
+// Runs on every SW start (install, browser start, wake-after-kill): rebuild
+// tab state from reality, then settle anything already due — this is what
+// makes a countdown survive the SW being killed mid-grace-period.
+serialized(() => tracker.rebuild(trackerEvents))
+  .then(processQueue)
+  .then(updateBadge);

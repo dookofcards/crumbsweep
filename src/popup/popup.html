@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>CrumbSweep</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="header">
+      <h1 id="ext-name">CrumbSweep</h1>
+      <button id="btn-settings" class="icon-btn" title="Settings" aria-label="Settings">⚙</button>
+    </header>
+    <main>
+      <section class="site-card">
+        <div id="site-domain" class="site-domain">…</div>
+        <div id="site-status" class="pill" hidden></div>
+      </section>
+
+      <div id="site-actions" class="actions">
+        <button id="btn-white" class="list-btn"></button>
+        <button id="btn-grey" class="list-btn"></button>
+        <button id="btn-clean" class="danger-btn">Clean this site's cookies now</button>
+      </div>
+
+      <p id="no-site" class="muted" hidden>
+        This page has no site cookies to manage.
+      </p>
+
+      <p id="feedback" class="feedback" hidden></p>
+
+      <section class="pause-card">
+        <div id="pause-active" hidden>
+          <span id="pause-status" class="pause-status"></span>
+          <button id="pause-resume" class="resume-btn">Resume auto-clean</button>
+        </div>
+        <div id="pause-buttons">
+          <span class="pause-label">Pause auto-clean:</span>
+          <div class="pause-row">
+            <button id="pause-15">15 min</button>
+            <button id="pause-60">1 hour</button>
+            <button id="pause-inf">Until I resume</button>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer class="footer">
+      <span title="Cookies cleaned today"><span id="stat-today">0</span> today</span>
+      <span class="dot">·</span>
+      <span title="Cookies cleaned in total"><span id="stat-total">0</span> total</span>
+    </footer>
+    <script src="popup.js"></script>
+  </body>
+</html>
