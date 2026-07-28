@@ -150,6 +150,27 @@ Pages → deploy from branch `main`, folder `/docs`). Once enabled:
 
 `https://github.com/dookofcards/crumbsweep/issues`
 
+## Test instructions (for the reviewer)
+
+No account, login, or configuration is required. To verify the core function:
+
+1. Install — an onboarding tab opens automatically.
+2. Visit https://www.wikipedia.org and confirm it set cookies (DevTools →
+   Application → Cookies).
+3. Close the Wikipedia tab and wait ~30 seconds (default grace period is
+   15s; it can fire up to ~30s later if the service worker was suspended).
+4. Revisit wikipedia.org — its cookies were deleted (the site treats you as
+   a first-time visitor; DevTools shows cookies freshly re-created).
+5. Whitelist test: click the toolbar icon on any site → "Whitelist this
+   site" → close the site's tabs, wait 30s, revisit — cookies survive and
+   the popup shows a green "Protected" badge.
+6. The grace period, greylist, opt-in data types, and list import/export
+   are on the options page.
+
+All processing is local. The extension makes no network requests, which can
+be confirmed in the service worker's DevTools Network panel. Source code:
+https://github.com/dookofcards/crumbsweep
+
 ## If the reviewer asks follow-up questions
 
 Broad host permissions get extra scrutiny. Prepared response, adapt as
