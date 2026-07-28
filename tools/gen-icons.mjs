@@ -1,6 +1,7 @@
-// One-time generator for placeholder icons (run: node tools/gen-icons.mjs).
-// Writes solid amber rounded squares with white "crumb" dots as raw PNGs —
-// no image libraries needed. Replace with real branding before store upload.
+// Icon generator (run: node tools/gen-icons.mjs) — writes raw PNGs with no
+// image libraries. Design: a round cookie with chocolate chips, a bite taken
+// from the top-right, and crumbs trailing off — "CrumbSweep". Rendered with
+// 4x4 supersampling for smooth edges at every size.
 import { deflateSync } from "node:zlib";
 import { mkdir, writeFile } from "node:fs/promises";
 
@@ -25,14 +26,37 @@ function chunk(type, data) {
   return out;
 }
 
-function png(size, pixelAt) {
+const SS = 4; // supersamples per axis
+
+function png(size, colorAt) {
   const raw = Buffer.alloc(size * (size * 4 + 1));
   for (let y = 0; y < size; y++) {
     const row = y * (size * 4 + 1);
     raw[row] = 0; // filter: none
     for (let x = 0; x < size; x++) {
-      const [r, g, b, a] = pixelAt(x, y);
-      raw.set([r, g, b, a], row + 1 + x * 4);
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let a = 0;
+      for (let sy = 0; sy < SS; sy++) {
+        for (let sx = 0; sx < SS; sx++) {
+          const u = (x + (sx + 0.5) / SS) / size;
+          const v = (y + (sy + 0.5) / SS) / size;
+          const [cr, cg, cb, ca] = colorAt(u, v);
+          r += cr * ca;
+          g += cg * ca;
+          b += cb * ca;
+          a += ca;
+        }
+      }
+      const n = SS * SS;
+      const alpha = a / n;
+      raw.set(
+        alpha > 0
+          ? [r / a, g / a, b / a, alpha].map(Math.round)
+          : [0, 0, 0, 0],
+        row + 1 + x * 4,
+      );
     }
   }
   const ihdr = Buffer.alloc(13);
@@ -47,40 +71,46 @@ function png(size, pixelAt) {
   ]);
 }
 
-const BG = [217, 119, 6]; // amber
-const BG_DARK = [180, 83, 9];
-const CRUMB = [255, 251, 235];
+const DOUGH = [230, 152, 54];
+const DOUGH_RIM = [193, 117, 26];
+const CHIP = [96, 47, 15];
+const CLEAR = [0, 0, 0, 0];
 
-function makeIcon(size) {
-  const radius = size * 0.22;
-  const crumbs = [
-    [0.32, 0.34, 0.11],
-    [0.62, 0.28, 0.075],
-    [0.52, 0.58, 0.135],
-    [0.3, 0.68, 0.07],
-    [0.72, 0.68, 0.095],
-  ];
-  return png(size, (x, y) => {
-    // rounded-rect mask
-    const cx = Math.max(radius - x, x - (size - 1 - radius), 0);
-    const cy = Math.max(radius - y, y - (size - 1 - radius), 0);
-    if (cx * cx + cy * cy > radius * radius) return [0, 0, 0, 0];
-    // diagonal two-tone background
-    let [r, g, b] = x + y > size ? BG_DARK : BG;
-    for (const [fx, fy, fr] of crumbs) {
-      const dx = x - fx * size;
-      const dy = y - fy * size;
-      if (dx * dx + dy * dy < fr * size * (fr * size)) {
-        [r, g, b] = CRUMB;
-        break;
-      }
+const COOKIE = { x: 0.48, y: 0.54, r: 0.44 };
+const BITE = { x: 0.82, y: 0.2, r: 0.19 };
+const CHIPS = [
+  [0.3, 0.4, 0.085],
+  [0.55, 0.56, 0.095],
+  [0.32, 0.7, 0.07],
+  [0.6, 0.3, 0.065],
+  [0.5, 0.82, 0.06],
+  [0.72, 0.66, 0.07],
+];
+const CRUMBS = [
+  [0.9, 0.09, 0.045],
+  [0.96, 0.26, 0.035],
+  [0.79, 0.025, 0.03],
+];
+
+const dist = (u, v, x, y) => Math.hypot(u - x, v - y);
+
+function colorAt(u, v) {
+  if (dist(u, v, COOKIE.x, COOKIE.y) <= COOKIE.r) {
+    if (dist(u, v, BITE.x, BITE.y) <= BITE.r) return CLEAR; // the bite
+    for (const [cx, cy, cr] of CHIPS) {
+      if (dist(u, v, cx, cy) <= cr) return [...CHIP, 255];
     }
-    return [r, g, b, 255];
-  });
+    const rim = dist(u, v, COOKIE.x, COOKIE.y) > COOKIE.r * 0.87;
+    return [...(rim ? DOUGH_RIM : DOUGH), 255];
+  }
+  for (const [cx, cy, cr] of CRUMBS) {
+    if (dist(u, v, cx, cy) <= cr) return [...DOUGH, 255];
+  }
+  return CLEAR;
 }
 
 await mkdir("src/icons", { recursive: true });
 for (const size of [16, 32, 48, 128]) {
-  await writeFile(`src/icons/icon${size}.png`, makeIcon(size));
+  await writeFile(`src/icons/icon${size}.png`, png(size, colorAt));
   console.log(`wrote src/icons/icon${size}.png`);
 }

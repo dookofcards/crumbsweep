@@ -92,3 +92,23 @@ Pages → deploy from branch `main`, folder `/docs`). Once enabled:
 ## Support URL
 
 `https://github.com/dookofcards/crumbsweep/issues`
+
+## If the reviewer asks follow-up questions
+
+Broad host permissions get extra scrutiny. Prepared response, adapt as
+needed:
+
+> CrumbSweep's single purpose is deleting cookies for sites the user closes.
+> `chrome.cookies.getAll` / `chrome.cookies.remove` only operate on cookies
+> whose host is covered by the extension's host permissions; since the user
+> may close a tab for any site, cookie deletion requires `<all_urls>`. The
+> extension cannot use `activeTab` or a fixed host list: cleaning happens
+> after the tab is closed (no active tab exists), for domains that cannot be
+> known in advance. No content scripts are injected, no page content is
+> read, no webRequest listeners exist, and the extension makes zero network
+> requests — the full source is public at
+> https://github.com/dookofcards/crumbsweep and every build is reproducible
+> from it (`npm ci && npm run package`).
+
+Data-collection disclosure form: check **nothing** (no data collected in any
+category); certify compliance.

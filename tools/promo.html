@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>CrumbSweep — store promo tiles</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        background: #eee;
+        margin: 0;
+        padding: 32px;
+      }
+      .howto {
+        max-width: 720px;
+        margin-bottom: 28px;
+        background: #fff;
+        border-radius: 10px;
+        padding: 16px 20px;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .tile {
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, #d97706, #92400e);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        margin-bottom: 32px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+      }
+      .tile::after {
+        content: "";
+        position: absolute;
+        right: -80px;
+        top: -80px;
+        width: 260px;
+        height: 260px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.08);
+      }
+      /* Small promo tile: required, 440x280 */
+      #tile-small {
+        width: 440px;
+        height: 280px;
+        flex-direction: column;
+        justify-content: center;
+        gap: 14px;
+        text-align: center;
+      }
+      #tile-small img {
+        width: 96px;
+        height: 96px;
+      }
+      #tile-small .name {
+        font-size: 34px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+      }
+      #tile-small .tag {
+        font-size: 16px;
+        opacity: 0.95;
+        margin: 0 28px;
+      }
+      /* Marquee: optional, 1400x560 */
+      #tile-marquee {
+        width: 1400px;
+        height: 560px;
+        padding: 0 90px;
+        box-sizing: border-box;
+      }
+      #tile-marquee img {
+        width: 220px;
+        height: 220px;
+        flex-shrink: 0;
+      }
+      #tile-marquee .name {
+        font-size: 84px;
+        font-weight: 800;
+        letter-spacing: -2px;
+        line-height: 1.1;
+      }
+      #tile-marquee .tag {
+        font-size: 32px;
+        opacity: 0.95;
+        margin-top: 12px;
+        max-width: 820px;
+      }
+      #tile-marquee .sub {
+        font-size: 22px;
+        opacity: 0.8;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="howto">
+      <strong>How to export exact-pixel PNGs:</strong> open this file in
+      Chrome → F12 → Ctrl+Shift+C and click a tile → in the Elements panel
+      right-click the highlighted <code>&lt;div&gt;</code> → "Capture node
+      screenshot". Chrome saves a PNG at the element's exact size
+      (440×280 / 1400×560), ready to upload to the Web Store. Screenshots of
+      the real UI (1280×800) still have to be taken from the running
+      extension — promo tiles may be artwork, screenshots may not.
+    </div>
+
+    <div class="tile" id="tile-small">
+      <img src="../src/icons/icon128.png" alt="" />
+      <div class="name">CrumbSweep</div>
+      <p class="tag">Cookies auto-deleted when you close a site's last tab</p>
+    </div>
+
+    <div class="tile" id="tile-marquee">
+      <img src="../src/icons/icon128.png" alt="" />
+      <div>
+        <div class="name">CrumbSweep</div>
+        <p class="tag">
+          Close a tab, lose the crumbs. Cookies auto-deleted when you close a
+          site's last tab.
+        </p>
+        <p class="sub">
+          Whitelist what you trust · Imports Cookie AutoDelete lists · Zero
+          data collection
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

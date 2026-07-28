@@ -1,5 +1,7 @@
 # CrumbSweep 🍪🧹
 
+[![CI](https://github.com/dookofcards/crumbsweep/actions/workflows/ci.yml/badge.svg)](https://github.com/dookofcards/crumbsweep/actions/workflows/ci.yml)
+
 **Automatically deletes a site's cookies when you close its last tab.**
 Whitelist the sites you trust; everything else gets swept.
 
