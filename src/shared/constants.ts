@@ -1,7 +1,5 @@
-// Single source of truth for branding and defaults.
-// The build script injects EXTENSION_NAME into the manifest, so a rename
-// only ever happens here.
-
+// The build script injects these into manifest.json, so a rename happens
+// here and nowhere else.
 export const EXTENSION_NAME = "CrumbSweep";
 export const EXTENSION_DESCRIPTION =
   "Automatically deletes a site's cookies when you close its last tab. Whitelist the sites you trust; everything else gets swept.";

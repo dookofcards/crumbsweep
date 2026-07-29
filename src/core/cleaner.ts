@@ -63,12 +63,6 @@ async function allCookiesInStore(
   return result;
 }
 
-/**
- * Delete all cookies for a registrable domain (subdomains included — the
- * `domain` filter of cookies.getAll matches them) across every accessible
- * cookie store, so split-incognito contexts are covered. Returns the number
- * of cookies removed.
- */
 async function removeCookies(
   cookies: chrome.cookies.Cookie[],
 ): Promise<number> {
@@ -87,12 +81,9 @@ async function removeCookies(
 }
 
 /**
- * The one per-domain cleaning path (auto-clean, popup clean-now, greylist
- * startup clean): removes cookies from every store, then — only for the
- * data types the user opted into — chrome.browsingData for the origins we
- * know belong to this site (origins observed in tabs, plus every host that
- * carried a cookie, plus bare/www). browsingData is origin-exact, which is
- * exactly why the extra types are opt-in.
+ * Cookies are matched by registrable domain, so subdomains are included and
+ * every cookie store is covered (split-incognito). Opt-in data types are
+ * cleared afterwards for this site's known origins.
  */
 export async function cleanDomainFull(
   domain: string,
@@ -142,10 +133,6 @@ async function cleanOptInData(
   }
 }
 
-/**
- * The options page's "clean everything now" action: removes every cookie in
- * every store except those whose registrable domain is spared (whitelist).
- */
 export async function cleanAllCookiesExcept(
   spared: ReadonlySet<string>,
 ): Promise<number> {

@@ -1,20 +1,18 @@
 import { getLists, normalizeEntry, replaceLists } from "./lists.ts";
 
-// Import sources, all parsed defensively (never throw on hostile input):
-//  1. Cookie AutoDelete JSON export: an array of expression objects
-//     ({ expression, listType: "WHITE" | "GREY", storeId, ... }). This is the
-//     #1 switcher-acquisition path. Wildcards like "*.example.com" collapse
-//     to eTLD+1; storeId (per-container rules) is ignored — unsupported here.
-//  2. Our own export format ({ white: [...], grey: [...] }).
-//  3. Plain newline-separated domain list — the caller must ask the user
-//     which list to add those to.
+// Import formats, all parsed defensively — these files are user-supplied
+// and must never throw:
+//  1. Cookie AutoDelete JSON: array of { expression, listType: WHITE|GREY,
+//     storeId, ... }. Wildcards collapse to eTLD+1; storeId is ignored
+//     because per-container rules aren't supported.
+//  2. This extension's own export ({ white: [...], grey: [...] }).
+//  3. Newline-separated domains — no list type, so the caller must choose.
 
 export type ParsedImport =
   | { kind: "lists"; white: string[]; grey: string[]; skipped: number }
   | { kind: "domains"; domains: string[]; skipped: number }
   | { kind: "invalid" };
 
-/** CAD expressions may carry wildcards; we match whole sites anyway. */
 function normalizeExpression(raw: string): string | null {
   let s = raw.trim();
   while (s.startsWith("*.")) s = s.slice(2);

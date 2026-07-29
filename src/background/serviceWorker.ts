@@ -1,8 +1,6 @@
-// Thin event-wiring layer only. All real logic lives in src/core/.
-// The service worker can be killed at any time; nothing here may rely on
-// in-memory state surviving between events — every handler re-reads
-// persisted state, and all mutations are serialized to avoid interleaved
-// read-modify-write on chrome.storage.
+// The service worker can be killed at any time, so no state may survive in
+// module scope between events: every handler re-reads from chrome.storage,
+// and mutations are serialized to avoid interleaved read-modify-write.
 import * as tracker from "../core/tabTracker.ts";
 import * as queue from "../core/cleanupQueue.ts";
 import { cleanAllCookiesExcept, cleanDomainFull } from "../core/cleaner.ts";
