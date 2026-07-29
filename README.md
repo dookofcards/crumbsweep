@@ -90,6 +90,11 @@ Found a bug or want a feature?
 [Open an issue](../../issues). Please include your Chrome version and, for
 cleaning bugs, the site involved.
 
+CrumbSweep is free and collects nothing, which also means it earns nothing.
+If it saved you some hassle, you can
+[buy me a coffee](https://buymeacoffee.com/dookofcards) — entirely optional,
+every feature stays free either way.
+
 ## License
 
 [MIT](LICENSE). Not affiliated with or endorsed by Cookie AutoDelete;
