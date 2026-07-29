@@ -97,5 +97,8 @@ every feature stays free either way.
 
 ## License
 
-[MIT](LICENSE). Not affiliated with or endorsed by Cookie AutoDelete;
-"Cookie AutoDelete" is referenced only to describe compatibility.
+[MIT](LICENSE) for the code. The CrumbSweep name, logo, and store artwork
+are not covered — see [NOTICE](NOTICE) if you plan to fork and redistribute.
+
+Not affiliated with or endorsed by Cookie AutoDelete; "Cookie AutoDelete" is
+referenced only to describe compatibility.
