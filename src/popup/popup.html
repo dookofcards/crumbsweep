@@ -19,8 +19,27 @@
       <div id="site-actions" class="actions">
         <button id="btn-white" class="list-btn"></button>
         <button id="btn-grey" class="list-btn"></button>
+        <button id="btn-keep">Keep specific cookies…</button>
         <button id="btn-clean" class="danger-btn">Clean this site's cookies now</button>
       </div>
+
+      <section id="keep-panel" class="keep-panel" hidden>
+        <div class="keep-head">
+          <strong>Cookies on this site</strong>
+          <button id="keep-close" class="icon-btn" aria-label="Close">×</button>
+        </div>
+        <p class="keep-hint">
+          Ticked cookies survive a sweep. Everything else still goes.
+        </p>
+        <ul id="keep-list" class="keep-list"></ul>
+        <!-- Both default to the locked state: a gate that fails open is not
+             a gate. openKeepPanel() unlocks them only after checking. -->
+        <p id="keep-locked" class="keep-locked">
+          Saving rules is part of <strong>CrumbSweep Pro</strong> — a one-time
+          unlock. Everything you have today stays free.
+        </p>
+        <button id="keep-save" class="keep-save" disabled>Save these rules</button>
+      </section>
 
       <p id="no-site" class="muted" hidden>
         This page has no site cookies to manage.

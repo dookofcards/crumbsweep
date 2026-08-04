@@ -1,7 +1,10 @@
 import { domainForUrl } from "../core/domain.ts";
 import { getStats } from "../core/cleaner.ts";
 import { getHistory } from "../core/history.ts";
+import { cookieIsKept, getRuleFor, setRule } from "../core/rules.ts";
+import { isLikelySessionCookie } from "../core/sessionCookies.ts";
 import { getRestorable } from "../core/undo.ts";
+import { hasFeature } from "../shared/features.ts";
 import {
   listStatusFor,
   setListMembership,
@@ -37,6 +40,12 @@ const el = {
   recentList: $<HTMLUListElement>("recent-list"),
   undoCard: $("undo-card"),
   btnUndo: $<HTMLButtonElement>("btn-undo"),
+  btnKeep: $<HTMLButtonElement>("btn-keep"),
+  keepPanel: $("keep-panel"),
+  keepClose: $<HTMLButtonElement>("keep-close"),
+  keepList: $<HTMLUListElement>("keep-list"),
+  keepLocked: $("keep-locked"),
+  keepSave: $<HTMLButtonElement>("keep-save"),
   pauseActive: $("pause-active"),
   pauseStatus: $("pause-status"),
   pauseButtons: $("pause-buttons"),
@@ -155,6 +164,82 @@ async function onUndo(): Promise<void> {
   await refreshUndo();
 }
 
+// --- keep specific cookies ---
+//
+// Free users see their real cookies and can tick boxes; only saving is gated.
+// Showing someone their own session cookie and offering to protect that one
+// explains the paid tier better than any description of it.
+
+async function openKeepPanel(): Promise<void> {
+  if (currentDomain === null) return;
+  el.keepPanel.hidden = false;
+  el.keepList.replaceChildren();
+
+  const [cookies, rule] = await Promise.all([
+    chrome.cookies.getAll({ domain: currentDomain }),
+    getRuleFor(currentDomain),
+  ]);
+
+  if (cookies.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "This site has no cookies right now.";
+    el.keepList.append(li);
+  }
+
+  cookies.sort((a, b) => (a.name < b.name ? -1 : 1));
+  for (const cookie of cookies) {
+    const li = document.createElement("li");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.value = cookie.name;
+    box.checked = cookieIsKept(rule, cookie.name);
+
+    const name = document.createElement("span");
+    name.className = "cookie-name";
+    name.textContent = cookie.name;
+
+    const host = document.createElement("span");
+    host.className = "cookie-host";
+    // Flag what session protection would keep on its own, so the two features
+    // do not look like they disagree.
+    if (isLikelySessionCookie(cookie, currentDomain)) {
+      host.className += " guessed";
+      host.textContent = "looks like a login";
+    } else {
+      host.textContent = cookie.domain.replace(/^\./, "");
+    }
+
+    const label = document.createElement("label");
+    label.style.display = "contents";
+    label.append(box, name, host);
+    li.append(label);
+    el.keepList.append(li);
+  }
+
+  const unlocked = await hasFeature("cookieLevelRules");
+  el.keepLocked.hidden = unlocked;
+  el.keepSave.disabled = !unlocked || cookies.length === 0;
+}
+
+async function saveKeepRules(): Promise<void> {
+  if (currentDomain === null) return;
+  // Re-check rather than trusting the button state: the entitlement could
+  // have lapsed while the popup sat open.
+  if (!(await hasFeature("cookieLevelRules"))) return;
+  const checked = [...el.keepList.querySelectorAll<HTMLInputElement>("input:checked")];
+  await setRule(
+    currentDomain,
+    checked.map((box) => box.value),
+  );
+  el.keepPanel.hidden = true;
+  showFeedback(
+    checked.length === 0
+      ? `No cookies kept for ${currentDomain}.`
+      : `Keeping ${checked.length} cookie${checked.length === 1 ? "" : "s"} for ${currentDomain}.`,
+  );
+}
+
 function showFeedback(text: string): void {
   el.feedback.textContent = text;
   el.feedback.hidden = false;
@@ -186,6 +271,9 @@ el.btnClean.addEventListener("click", async () => {
 });
 
 el.btnUndo.addEventListener("click", () => void onUndo());
+el.btnKeep.addEventListener("click", () => void openKeepPanel());
+el.keepClose.addEventListener("click", () => (el.keepPanel.hidden = true));
+el.keepSave.addEventListener("click", () => void saveKeepRules());
 
 el.btnSettings.addEventListener("click", () => {
   void chrome.runtime.openOptionsPage();

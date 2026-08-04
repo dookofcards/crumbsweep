@@ -1,5 +1,6 @@
 import { domainForHost } from "./domain.ts";
 import { describeCookies, recordSweep, type SweepTrigger } from "./history.ts";
+import { getRuleFor, partitionByRule } from "./rules.ts";
 import { partitionBySession } from "./sessionCookies.ts";
 import { stashSweep } from "./undo.ts";
 import { hasFeature } from "../shared/features.ts";
@@ -96,8 +97,12 @@ export async function cleanDomainFull(
   trigger: SweepTrigger = "tab-close",
 ): Promise<number> {
   const protectSessions =
-    hasFeature("sessionCookieProtection") &&
+    (await hasFeature("sessionCookieProtection")) &&
     (await getSettings()).protectSessionCookies;
+  // An explicit rule outranks the heuristic: the user said what to keep.
+  const rule = (await hasFeature("cookieLevelRules"))
+    ? await getRuleFor(domain)
+    : undefined;
 
   const removed: chrome.cookies.Cookie[] = [];
   const cookieHosts = new Set<string>();
@@ -107,13 +112,17 @@ export async function cleanDomainFull(
     for (const cookie of cookies) {
       cookieHosts.add(cookie.domain.replace(/^\./, ""));
     }
-    const targets = protectSessions
-      ? (() => {
-          const split = partitionBySession(cookies, domain);
-          kept += split.keep.length;
-          return split.sweep;
-        })()
-      : cookies;
+    let targets = cookies;
+    if (rule !== undefined) {
+      const split = partitionByRule(targets, rule);
+      kept += split.keep.length;
+      targets = split.sweep;
+    }
+    if (protectSessions) {
+      const split = partitionBySession(targets, domain);
+      kept += split.keep.length;
+      targets = split.sweep;
+    }
     removed.push(...(await removeCookies(targets)));
   }
   // Wiping localStorage for an origin whose login cookie we just protected

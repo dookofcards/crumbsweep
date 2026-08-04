@@ -110,6 +110,89 @@ main {
   color: #dc2626;
 }
 
+.keep-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.keep-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.keep-hint {
+  margin: 4px 0 8px;
+  font-size: 12px;
+  opacity: 0.65;
+}
+
+.keep-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  max-height: 190px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.keep-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 3px 0;
+}
+
+.keep-list input {
+  accent-color: var(--ok);
+  flex-shrink: 0;
+}
+
+.keep-list .cookie-name {
+  word-break: break-all;
+}
+
+.keep-list .cookie-host {
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0.5;
+  font-size: 11px;
+}
+
+.keep-list .guessed {
+  color: var(--ok);
+}
+
+.keep-list .empty {
+  opacity: 0.55;
+}
+
+.keep-locked {
+  margin: 0 0 8px;
+  font-size: 11px;
+  border-left: 2px solid var(--accent);
+  padding-left: 8px;
+  opacity: 0.85;
+}
+
+.keep-save {
+  width: 100%;
+  padding: 7px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.keep-save:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .undo-card {
   border-top: 1px solid var(--line);
   padding-top: 10px;

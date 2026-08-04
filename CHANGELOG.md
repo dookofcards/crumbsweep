@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0 — 2026-08-04
+
+Introduces CrumbSweep Pro. **Nothing that was free became paid**, and it
+never will — Pro is only new, additive precision.
+
+- **Stay logged in** (Pro): keep a site's login cookie while sweeping its
+  trackers, instead of choosing between whitelisting the whole site and
+  losing the session. Third-party cookies are never kept.
+- **Keep specific cookies** (Pro): pick exactly which of a site's cookies
+  survive, from the popup, with wildcards. Anyone can see the list and tick
+  boxes; saving is the part that needs the unlock.
+- **Restore older sweeps** (Pro). Undoing the most recent sweep stays free.
+- Sites with a protected cookie keep their localStorage too, since clearing
+  it would sign you out anyway.
+
 ## 0.3.0 — 2026-08-04
 
 - **Undo a sweep.** Closed a tab and lost a session you wanted? The popup

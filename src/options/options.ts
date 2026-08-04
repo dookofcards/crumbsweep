@@ -322,13 +322,14 @@ function undoButton(
   record: SweepRecord,
   restorable: Map<string, number>,
   newestId: string | undefined,
+  restoreUnlocked: boolean,
 ): HTMLButtonElement | null {
   const count = restorable.get(record.id);
   if (count === undefined) return null;
   const button = document.createElement("button");
   button.className = "undo-inline";
   const isNewest = record.id === newestId;
-  if (isNewest || hasFeature("historyRestore")) {
+  if (isNewest || restoreUnlocked) {
     button.textContent = `Put back ${count}`;
     button.addEventListener("click", (event) => {
       event.preventDefault();
@@ -347,6 +348,7 @@ function renderRecord(
   record: SweepRecord,
   restorable: Map<string, number>,
   newestId: string | undefined,
+  restoreUnlocked: boolean,
 ): HTMLElement {
   const details = document.createElement("details");
   const summary = document.createElement("summary");
@@ -395,7 +397,7 @@ function renderRecord(
   names.append(trigger);
   details.append(names);
 
-  const undo = undoButton(record, restorable, newestId);
+  const undo = undoButton(record, restorable, newestId, restoreUnlocked);
   if (undo !== null) {
     const row = document.createElement("p");
     row.className = "undo-row";
@@ -411,6 +413,7 @@ function renderLog(
   records: SweepRecord[],
   restorable: Map<string, number>,
   newestId: string | undefined,
+  restoreUnlocked: boolean,
 ): void {
   el.activityLog.replaceChildren();
   if (records.length === 0) {
@@ -430,21 +433,24 @@ function renderLog(
       heading.textContent = label;
       el.activityLog.append(heading);
     }
-    el.activityLog.append(renderRecord(record, restorable, newestId));
+    el.activityLog.append(
+      renderRecord(record, restorable, newestId, restoreUnlocked),
+    );
   }
 }
 
 async function refreshActivity(): Promise<void> {
-  const [records, restorableList] = await Promise.all([
+  const [records, restorableList, restoreUnlocked] = await Promise.all([
     getHistory(),
     getRestorable(),
+    hasFeature("historyRestore"),
   ]);
   const restorable = new Map(
     restorableList.map((entry) => [entry.sweepId, entry.count]),
   );
   renderSummary(records);
   renderSources(records);
-  renderLog(records, restorable, restorableList[0]?.sweepId);
+  renderLog(records, restorable, restorableList[0]?.sweepId, restoreUnlocked);
 }
 
 // --- clean everything ---
@@ -489,7 +495,7 @@ async function init(): Promise<void> {
 
   // The control is shown to everyone; only saving is gated. Seeing exactly
   // what the paid tier does beats a feature list.
-  const sessionsUnlocked = hasFeature("sessionCookieProtection");
+  const sessionsUnlocked = await hasFeature("sessionCookieProtection");
   el.optProtectSessions.disabled = !sessionsUnlocked;
   el.proLocked.hidden = sessionsUnlocked;
   if (!sessionsUnlocked) {

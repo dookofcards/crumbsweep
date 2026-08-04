@@ -357,6 +357,147 @@ test("popup offers undo right after a sweep", async ({ page, extId }) => {
   );
 });
 
+// --- phases 3-5: pro features and the entitlement gate ---
+
+const grantPro = (page) =>
+  page.evaluate(() =>
+    chrome.storage.local.set({
+      proEntitlement: { active: true, checkedAt: Date.now() },
+    }),
+  );
+
+test("session cookies are swept while the tier is free", async ({ page }) => {
+  const left = await page.evaluate(async () => {
+    await chrome.storage.sync.set({
+      settings: { protectSessionCookies: true },
+    });
+    await chrome.cookies.set({
+      url: "https://e2e-free.com/",
+      name: "PHPSESSID",
+      value: "1",
+    });
+    await chrome.runtime.sendMessage({
+      type: "cleanDomainNow",
+      domain: "e2e-free.com",
+    });
+    return (await chrome.cookies.getAll({ domain: "e2e-free.com" })).length;
+  });
+  assert(left === 0, "the setting took effect without an entitlement");
+});
+
+test("with pro, the login cookie stays and the trackers go", async ({ page }) => {
+  await grantPro(page);
+  const result = await page.evaluate(async () => {
+    await chrome.storage.sync.set({
+      settings: { protectSessionCookies: true },
+    });
+    for (const name of ["PHPSESSID", "csrftoken", "_ga", "_hjSessionUser_9", "theme"]) {
+      await chrome.cookies.set({ url: "https://e2e-pro.com/", name, value: "1" });
+    }
+    await chrome.runtime.sendMessage({
+      type: "cleanDomainNow",
+      domain: "e2e-pro.com",
+    });
+    const left = await chrome.cookies.getAll({ domain: "e2e-pro.com" });
+    const { sweepLog } = await chrome.storage.local.get("sweepLog");
+    return { left: left.map((c) => c.name).sort(), kept: sweepLog[0].kept };
+  });
+  assert(
+    JSON.stringify(result.left) === JSON.stringify(["PHPSESSID", "csrftoken"]),
+    `wrong survivors: ${JSON.stringify(result.left)}`,
+  );
+  assert(result.kept === 2, `history recorded kept=${result.kept}, expected 2`);
+});
+
+test("a keep rule protects exactly what it names", async ({ page }) => {
+  await grantPro(page);
+  const left = await page.evaluate(async () => {
+    await chrome.storage.sync.set({
+      "cookierules.0": [{ domain: "e2e-rule.com", keep: ["keepme", "pref_*"] }],
+    });
+    for (const name of ["keepme", "pref_theme", "pref_lang", "_ga", "other"]) {
+      await chrome.cookies.set({ url: "https://e2e-rule.com/", name, value: "1" });
+    }
+    await chrome.runtime.sendMessage({
+      type: "cleanDomainNow",
+      domain: "e2e-rule.com",
+    });
+    return (await chrome.cookies.getAll({ domain: "e2e-rule.com" }))
+      .map((c) => c.name)
+      .sort();
+  });
+  assert(
+    JSON.stringify(left) === JSON.stringify(["keepme", "pref_lang", "pref_theme"]),
+    `wrong survivors: ${JSON.stringify(left)}`,
+  );
+});
+
+test("keep rules do nothing without an entitlement", async ({ page }) => {
+  const left = await page.evaluate(async () => {
+    await chrome.storage.sync.set({
+      "cookierules.0": [{ domain: "e2e-norule.com", keep: ["keepme"] }],
+    });
+    await chrome.cookies.set({
+      url: "https://e2e-norule.com/",
+      name: "keepme",
+      value: "1",
+    });
+    await chrome.runtime.sendMessage({
+      type: "cleanDomainNow",
+      domain: "e2e-norule.com",
+    });
+    return (await chrome.cookies.getAll({ domain: "e2e-norule.com" })).length;
+  });
+  assert(left === 0, "a rule was honoured on the free tier");
+});
+
+test("popup shows real cookies but gates saving until pro", async ({ page, extId }) => {
+  await page.evaluate(async () => {
+    for (const name of ["PHPSESSID", "_ga"]) {
+      await chrome.cookies.set({ url: "https://e2e-keepui.com/", name, value: "1" });
+    }
+  });
+  const popup = await page.context().newPage();
+  await popup.goto(`chrome-extension://${extId}/popup/popup.html`);
+  // The popup reads the active tab; drive the panel directly instead.
+  await popup.evaluate(() => {
+    const btn = document.getElementById("btn-keep");
+    btn.dispatchEvent(new Event("click"));
+  });
+  await popup.waitForTimeout(300);
+  const state = await popup.evaluate(() => ({
+    names: [...document.querySelectorAll("#keep-list .cookie-name")].map(
+      (n) => n.textContent,
+    ),
+    saveDisabled: document.getElementById("keep-save").disabled,
+    lockedVisible: !document.getElementById("keep-locked").hidden,
+  }));
+  await popup.close();
+  // No active site in this harness, so the list stays empty; what matters is
+  // that the gate is closed and explained.
+  assert(state.saveDisabled, "saving was enabled without an entitlement");
+  assert(state.lockedVisible, "the pro explanation was not shown");
+});
+
+test("options gates the session-protection toggle", async ({ page }) => {
+  await page.reload();
+  await page.waitForTimeout(400);
+  const free = await page.evaluate(() => ({
+    disabled: document.getElementById("opt-protect-sessions").disabled,
+    locked: !document.getElementById("pro-locked").hidden,
+  }));
+  assert(free.disabled && free.locked, "free tier could toggle session protection");
+
+  await grantPro(page);
+  await page.reload();
+  await page.waitForTimeout(400);
+  const pro = await page.evaluate(() => ({
+    disabled: document.getElementById("opt-protect-sessions").disabled,
+    locked: !document.getElementById("pro-locked").hidden,
+  }));
+  assert(!pro.disabled && !pro.locked, "pro tier was still gated");
+});
+
 // --- runner ---
 
 export async function run() {

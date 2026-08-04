@@ -57,8 +57,8 @@
           logged in without keeping the tracking.
         </p>
         <label class="check"
-          ><input id="opt-protect-sessions" type="checkbox" /> Keep login and
-          session cookies for sites I visit</label
+          ><input id="opt-protect-sessions" type="checkbox" disabled /> Keep
+          login and session cookies for sites I visit</label
         >
         <p class="hint">
           Identified by name and by being set by the site itself; a session
@@ -67,7 +67,8 @@
           wrong. Sites with a kept cookie also keep their localStorage, since
           wiping it would sign you out anyway.
         </p>
-        <p id="pro-locked" class="hint pro-locked" hidden></p>
+        <!-- Starts locked; init() opens it only after checking entitlement. -->
+        <p id="pro-locked" class="hint pro-locked"></p>
       </section>
 
       <section>
