@@ -191,6 +191,22 @@ button:hover {
   background: color-mix(in srgb, #dc2626 10%, transparent);
 }
 
+.page-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  opacity: 0.65;
+}
+
+.page-footer a {
+  color: inherit;
+  cursor: pointer;
+}
+
 [hidden] {
   display: none !important;
 }

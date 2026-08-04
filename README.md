@@ -10,8 +10,7 @@ Chrome extension and a spiritual successor to Cookie AutoDelete, which was
 discontinued when Chrome retired Manifest V2. If you're switching,
 **CrumbSweep imports your Cookie AutoDelete list in one click.**
 
-<!-- TODO: replace with real links once published -->
-👉 **[Install from the Chrome Web Store](#)** · **[Website](https://dookofcards.github.io/crumbsweep/)** · **[Privacy policy](https://dookofcards.github.io/crumbsweep/privacy-policy.html)**
+👉 **[Install from the Chrome Web Store](https://chromewebstore.google.com/detail/crumbsweep/kohfndmjmmfbmkiagfndfoglpimiaman)** · **[Website](https://dookofcards.github.io/crumbsweep/)** · **[Privacy policy](https://dookofcards.github.io/crumbsweep/privacy-policy.html)**
 
 ## How it works
 

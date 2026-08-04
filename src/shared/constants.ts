@@ -4,6 +4,13 @@ export const EXTENSION_NAME = "CrumbSweep";
 export const EXTENSION_DESCRIPTION =
   "Automatically deletes a site's cookies when you close its last tab. Whitelist the sites you trust; everything else gets swept.";
 
+/** Outbound links shown in the UI. Nothing here is fetched at runtime. */
+export const HOMEPAGE_URL = "https://dookofcards.github.io/crumbsweep/";
+export const SUPPORT_URL = "https://buymeacoffee.com/dookofcards";
+const STORE_URL =
+  "https://chromewebstore.google.com/detail/crumbsweep/kohfndmjmmfbmkiagfndfoglpimiaman";
+export const STORE_REVIEW_URL = `${STORE_URL}/reviews`;
+
 /** Seconds to wait after the last tab for a domain closes before cleaning. */
 export const DEFAULT_GRACE_PERIOD_SECONDS = 15;
 

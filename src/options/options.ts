@@ -9,7 +9,12 @@ import {
   setListMembership,
   type ListType,
 } from "../core/lists.ts";
-import { EXTENSION_NAME } from "../shared/constants.ts";
+import {
+  EXTENSION_NAME,
+  HOMEPAGE_URL,
+  STORE_REVIEW_URL,
+  SUPPORT_URL,
+} from "../shared/constants.ts";
 import type {
   CleanAllExceptWhitelistMessage,
   CleanNowResponse,
@@ -46,6 +51,10 @@ const el = {
   importToGrey: $<HTMLButtonElement>("import-to-grey"),
   importCancel: $<HTMLButtonElement>("import-cancel"),
   importResult: $("import-result"),
+  version: $("version"),
+  linkHome: $<HTMLAnchorElement>("link-home"),
+  linkRate: $<HTMLAnchorElement>("link-rate"),
+  linkSupport: $<HTMLAnchorElement>("link-support"),
 };
 
 let saveFlashTimer: ReturnType<typeof setTimeout> | undefined;
@@ -233,6 +242,10 @@ async function onCleanAll(): Promise<void> {
 async function init(): Promise<void> {
   el.name.textContent = EXTENSION_NAME;
   document.title = `${EXTENSION_NAME} Settings`;
+  el.version.textContent = `${EXTENSION_NAME} ${chrome.runtime.getManifest().version}`;
+  el.linkHome.href = HOMEPAGE_URL;
+  el.linkRate.href = STORE_REVIEW_URL;
+  el.linkSupport.href = SUPPORT_URL;
 
   const settings = await getSettings();
   el.graceSlider.value = String(settings.gracePeriodSeconds);
