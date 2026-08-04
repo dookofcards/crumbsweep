@@ -26,6 +26,13 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
+  "content_scripts": [
+    {
+      "matches": ["https://extensionpay.com/*"],
+      "js": ["extpay/ExtPay.js"],
+      "run_at": "document_start"
+    }
+  ],
   "permissions": ["cookies", "tabs", "storage", "alarms", "browsingData"],
   "optional_permissions": ["notifications"],
   "host_permissions": ["<all_urls>"]

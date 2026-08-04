@@ -21,11 +21,22 @@ export interface UndoSweepMessage {
   sweepId: string;
 }
 
+/** Opens the ExtensionPay checkout. The only message that touches a network. */
+export interface BeginUpgradeMessage {
+  type: "beginUpgrade";
+}
+
 export type Message =
   | CleanDomainNowMessage
   | CleanAllExceptWhitelistMessage
   | SetPauseMessage
-  | UndoSweepMessage;
+  | UndoSweepMessage
+  | BeginUpgradeMessage;
+
+export interface BeginUpgradeResponse {
+  /** False when payment is not configured for this build. */
+  started: boolean;
+}
 
 export interface CleanNowResponse {
   removed: number;

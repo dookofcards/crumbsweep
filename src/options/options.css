@@ -203,6 +203,18 @@ button:hover {
   color: #fff;
 }
 
+.upgrade-btn {
+  margin-top: 4px;
+  padding: 8px 16px;
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.upgrade-btn:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
 h2.sub {
   margin-top: 20px;
   font-size: 14px;

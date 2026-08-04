@@ -498,6 +498,107 @@ test("options gates the session-protection toggle", async ({ page }) => {
   assert(!pro.disabled && !pro.locked, "pro tier was still gated");
 });
 
+// --- phase 6: payment stays unreachable until asked for ---
+
+test("content scripts only ever run on extensionpay.com", async ({ page }) => {
+  // Two things guarded here. While payment is unconfigured there should be no
+  // content script at all — declaring access the extension never uses is not
+  // something a privacy extension gets to do. And once it is configured, the
+  // match must stay narrow: the upstream ExtPay sample injects its script
+  // into every http(s) page, which would be indefensible.
+  const scripts = await page.evaluate(
+    () => chrome.runtime.getManifest().content_scripts,
+  );
+  if (scripts === undefined) return;
+  assert(scripts.length === 1, `expected 1 content script, got ${scripts.length}`);
+  assert(
+    JSON.stringify(scripts[0].matches) === JSON.stringify(["https://extensionpay.com/*"]),
+    `content script matches too much: ${JSON.stringify(scripts[0].matches)}`,
+  );
+});
+
+test("no payment code ships while payment is unconfigured", async ({ page }) => {
+  const present = await page.evaluate(async () => {
+    const response = await fetch(chrome.runtime.getURL("extpay/ExtPay.js")).catch(
+      () => null,
+    );
+    return response !== null && response.ok;
+  });
+  const configured = await page.evaluate(
+    () => chrome.runtime.getManifest().content_scripts !== undefined,
+  );
+  assert(
+    present === configured,
+    present
+      ? "the AGPL payment library shipped in a build with no payment flow"
+      : "payment is configured but the library is missing from the build",
+  );
+});
+
+test("ExtPay is not loaded into the service worker for a free user", async ({
+  worker,
+}) => {
+  const loaded = await worker.evaluate(() => typeof self.ExtPay !== "undefined");
+  assert(!loaded, "payment library was loaded without the user asking");
+});
+
+test("a free user's session makes no external network requests", async ({
+  page,
+  context,
+  extId,
+}) => {
+  const external = [];
+  const record = (url) => {
+    if (!url.startsWith(`chrome-extension://${extId}`) && !url.startsWith("data:")) {
+      external.push(url);
+    }
+  };
+  context.on("request", (request) => record(request.url()));
+
+  // Exercise everything a normal user touches.
+  await page.evaluate(async () => {
+    await chrome.cookies.set({ url: "https://e2e-net.com/", name: "a", value: "1" });
+    await chrome.runtime.sendMessage({ type: "cleanDomainNow", domain: "e2e-net.com" });
+    await chrome.runtime.sendMessage({ type: "cleanAllExceptWhitelist" });
+    await chrome.runtime.sendMessage({ type: "setPause", until: "indefinite" });
+    await chrome.runtime.sendMessage({ type: "setPause", until: null });
+  });
+  await page.reload();
+  await page.waitForTimeout(600);
+
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extId}/popup/popup.html`);
+  await popup.waitForTimeout(400);
+  await popup.close();
+  await page.waitForTimeout(600);
+
+  assert(
+    external.length === 0,
+    `made ${external.length} external request(s): ${external.slice(0, 5).join(", ")}`,
+  );
+});
+
+test("the upgrade offer matches whether payment is configured", async ({ page }) => {
+  await page.reload();
+  await page.waitForTimeout(400);
+  const state = await page.evaluate(() => ({
+    hidden: document.getElementById("btn-upgrade").hidden,
+    locked: document.getElementById("pro-locked").textContent,
+    configured: chrome.runtime.getManifest().content_scripts !== undefined,
+  }));
+  if (state.configured) {
+    assert(!state.hidden, "payment is configured but no upgrade was offered");
+  } else {
+    // Offering to take money through a flow that cannot complete is worse
+    // than not offering at all.
+    assert(state.hidden, "offered a purchase through a flow that cannot complete");
+    assert(
+      state.locked.includes("coming soon"),
+      `unexpected locked copy: "${state.locked}"`,
+    );
+  }
+});
+
 // --- runner ---
 
 export async function run() {

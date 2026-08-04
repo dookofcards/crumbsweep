@@ -11,6 +11,16 @@ const STORE_URL =
   "https://chromewebstore.google.com/detail/crumbsweep/kohfndmjmmfbmkiagfndfoglpimiaman";
 export const STORE_REVIEW_URL = `${STORE_URL}/reviews`;
 
+/**
+ * ExtensionPay slug, obtained by registering the extension at
+ * extensionpay.com and connecting a Stripe account. While it is empty,
+ * payment is not configured: no upgrade UI is shown, no payment code loads,
+ * and the extension makes no network requests at all.
+ */
+export const EXTENSIONPAY_ID = "";
+
+export const paymentConfigured = (): boolean => EXTENSIONPAY_ID !== "";
+
 /** Seconds to wait after the last tab for a domain closes before cleaning. */
 export const DEFAULT_GRACE_PERIOD_SECONDS = 15;
 

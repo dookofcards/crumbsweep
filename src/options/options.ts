@@ -20,10 +20,13 @@ import { hasFeature } from "../shared/features.ts";
 import {
   EXTENSION_NAME,
   HOMEPAGE_URL,
+  paymentConfigured,
   STORE_REVIEW_URL,
   SUPPORT_URL,
 } from "../shared/constants.ts";
 import type {
+  BeginUpgradeMessage,
+  BeginUpgradeResponse,
   CleanAllExceptWhitelistMessage,
   CleanNowResponse,
   UndoSweepMessage,
@@ -46,6 +49,8 @@ const el = {
   optNotify: $<HTMLInputElement>("opt-notify"),
   optProtectSessions: $<HTMLInputElement>("opt-protect-sessions"),
   proLocked: $("pro-locked"),
+  btnUpgrade: $<HTMLButtonElement>("btn-upgrade"),
+  upgradeNote: $("upgrade-note"),
   whiteForm: $<HTMLFormElement>("white-form"),
   whiteInput: $<HTMLInputElement>("white-input"),
   whiteList: $<HTMLUListElement>("white-list"),
@@ -501,6 +506,27 @@ async function init(): Promise<void> {
   if (!sessionsUnlocked) {
     el.proLocked.textContent =
       "CrumbSweep Pro — a one-time unlock that funds the work. Everything you have today stays free.";
+    // Offering to take money through a flow that cannot complete is worse
+    // than not offering at all, so the button stays hidden until the
+    // ExtensionPay account exists.
+    if (paymentConfigured()) {
+      const upgrade: BeginUpgradeMessage = { type: "beginUpgrade" };
+      el.btnUpgrade.addEventListener("click", async () => {
+        el.btnUpgrade.disabled = true;
+        const response: BeginUpgradeResponse =
+          await chrome.runtime.sendMessage(upgrade);
+        el.btnUpgrade.disabled = false;
+        if (!response.started) {
+          el.proLocked.textContent =
+            "Couldn't open the payment page. Check your connection and try again.";
+        }
+      });
+      el.btnUpgrade.hidden = false;
+      el.upgradeNote.hidden = false;
+    } else {
+      el.proLocked.textContent =
+        "CrumbSweep Pro is coming soon. Everything you have today stays free.";
+    }
   }
   el.optProtectSessions.addEventListener("change", () =>
     void save({ protectSessionCookies: el.optProtectSessions.checked }),

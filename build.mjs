@@ -8,6 +8,7 @@ import { zipDirectory } from "./tools/zip.mjs";
 import {
   EXTENSION_NAME,
   EXTENSION_DESCRIPTION,
+  paymentConfigured,
 } from "./src/shared/constants.ts";
 
 const watch = process.argv.includes("--watch");
@@ -21,8 +22,11 @@ async function buildManifest() {
     .replaceAll("__EXTENSION_NAME__", EXTENSION_NAME)
     .replaceAll("__EXTENSION_DESCRIPTION__", EXTENSION_DESCRIPTION)
     .replaceAll("__VERSION__", pkg.version);
-  JSON.parse(manifest); // fail the build on malformed output
-  await writeFile(`${dist}/manifest.json`, manifest);
+  const parsed = JSON.parse(manifest); // fail the build on malformed output
+  // Until an ExtensionPay account exists, the payment content script would
+  // declare access the extension never uses. Ship what is actually true.
+  if (!paymentConfigured()) delete parsed.content_scripts;
+  await writeFile(`${dist}/manifest.json`, `${JSON.stringify(parsed, null, 2)}\n`);
 }
 
 async function copyStatic() {
@@ -33,6 +37,14 @@ async function copyStatic() {
   await cp("src/onboarding/onboarding.html", `${dist}/onboarding/onboarding.html`);
   await cp("src/onboarding/onboarding.css", `${dist}/onboarding/onboarding.css`);
   await cp("src/icons", `${dist}/icons`, { recursive: true });
+  // ExtPay ships as a discrete, unmodified file rather than being bundled:
+  // it is AGPLv3 (CrumbSweep is MIT), and keeping it separate means the
+  // service worker only pulls it in via importScripts after the user has
+  // actually started a purchase. See src/background/payment.ts.
+  if (paymentConfigured()) {
+    await mkdir(`${dist}/extpay`, { recursive: true });
+    await cp("node_modules/extpay/dist/ExtPay.js", `${dist}/extpay/ExtPay.js`);
+  }
 }
 
 const bundleOptions = {

@@ -9,11 +9,17 @@ import { updateBadge } from "../core/badge.ts";
 import { EXTENSION_NAME } from "../shared/constants.ts";
 import { getSettings } from "../shared/settings.ts";
 import { getPauseState, setPauseUntil } from "../shared/pause.ts";
+import {
+  beginUpgrade,
+  revalidateEntitlement,
+  startPaymentBackground,
+} from "./payment.ts";
 import { armSchedule, DEEP_CLEAN_ALARM, runIfDue } from "../core/schedule.ts";
 import { restoreSweep } from "../core/undo.ts";
 import { hasFeature } from "../shared/features.ts";
 import type {
   Message,
+  BeginUpgradeResponse,
   CleanNowResponse,
   UndoSweepResponse,
 } from "../shared/messages.ts";
@@ -171,6 +177,13 @@ chrome.runtime.onMessage.addListener(
       });
       return true;
     }
+    if (message.type === "beginUpgrade") {
+      beginUpgrade().then((started) => {
+        const response: BeginUpgradeResponse = { started };
+        sendResponse(response);
+      });
+      return true;
+    }
     if (message.type === "setPause") {
       serialized(async () => {
         await setPauseUntil(message.until);
@@ -222,4 +235,8 @@ serialized(() => tracker.rebuild(trackerEvents))
     const unlocked = await hasFeature("scheduledDeepCleans");
     await armSchedule(unlocked ? settings.deepCleanSchedule : "off");
     await processSchedule();
+    // Both are no-ops until the user has started a purchase, so a free user's
+    // service worker still opens no connections.
+    await startPaymentBackground();
+    await revalidateEntitlement();
   });
