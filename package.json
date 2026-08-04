@@ -8,6 +8,7 @@
     "watch": "node build.mjs --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "e2e": "node build.mjs && node tools/e2e.mjs",
     "package": "node build.mjs --prod"
   },
   "devDependencies": {

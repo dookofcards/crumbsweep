@@ -3,8 +3,8 @@
 // --prod additionally minifies and zips dist/ into a store-ready
 // crumbsweep-v<version>.zip in the project root.
 import * as esbuild from "esbuild";
-import { execFileSync } from "node:child_process";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { zipDirectory } from "./tools/zip.mjs";
 import {
   EXTENSION_NAME,
   EXTENSION_DESCRIPTION,
@@ -51,18 +51,10 @@ const bundleOptions = {
   logLevel: "info",
 };
 
-function makeZip(version) {
+async function makeZip(version) {
   const zipName = `crumbsweep-v${version}.zip`;
-  if (process.platform === "win32") {
-    execFileSync("powershell.exe", [
-      "-NoProfile",
-      "-Command",
-      `Compress-Archive -Path ${dist}\\* -DestinationPath ${zipName} -Force`,
-    ]);
-  } else {
-    execFileSync("zip", ["-r", "-X", `../${zipName}`, "."], { cwd: dist });
-  }
-  return zipName;
+  const files = await zipDirectory(dist, zipName);
+  return { zipName, count: files.length };
 }
 
 await rm(dist, { recursive: true, force: true });
@@ -79,7 +71,7 @@ if (watch) {
   console.log(`built ${EXTENSION_NAME} into ${dist}/`);
   if (prod) {
     const pkg = JSON.parse(await readFile("package.json", "utf8"));
-    const zipName = makeZip(pkg.version);
-    console.log(`packaged store-ready ${zipName}`);
+    const { zipName, count } = await makeZip(pkg.version);
+    console.log(`packaged store-ready ${zipName} (${count} files)`);
   }
 }
