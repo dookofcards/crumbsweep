@@ -203,6 +203,11 @@ button:hover {
   color: #fff;
 }
 
+h2.sub {
+  margin-top: 20px;
+  font-size: 14px;
+}
+
 .pro-locked {
   border-left: 2px solid var(--accent);
   padding-left: 10px;

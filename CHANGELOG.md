@@ -12,6 +12,9 @@ never will — Pro is only new, additive precision.
   survive, from the popup, with wildcards. Anyone can see the list and tick
   boxes; saving is the part that needs the unlock.
 - **Restore older sweeps** (Pro). Undoing the most recent sweep stays free.
+- **Scheduled deep clean** (Pro): sweep everything except your whitelist
+  daily or weekly, regardless of how you browse. Respects pause, and turning
+  it on starts the clock rather than cleaning immediately.
 - Sites with a protected cookie keep their localStorage too, since clearing
   it would sign you out anyway.
 

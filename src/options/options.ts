@@ -506,6 +506,21 @@ async function init(): Promise<void> {
     void save({ protectSessionCookies: el.optProtectSessions.checked }),
   );
 
+  const deepCleanRadios = document.querySelectorAll<HTMLInputElement>(
+    'input[name="deep-clean"]',
+  );
+  for (const radio of deepCleanRadios) {
+    radio.checked = radio.value === settings.deepCleanSchedule;
+    radio.disabled = !sessionsUnlocked;
+    radio.addEventListener("change", () => {
+      if (radio.checked) {
+        void save({
+          deepCleanSchedule: radio.value as Settings["deepCleanSchedule"],
+        });
+      }
+    });
+  }
+
   el.graceSlider.addEventListener("input", () => {
     el.graceValue.textContent = formatGrace(Number(el.graceSlider.value));
   });

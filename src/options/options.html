@@ -67,6 +67,23 @@
           wrong. Sites with a kept cookie also keep their localStorage, since
           wiping it would sign you out anyway.
         </p>
+        <h2 class="sub">Scheduled deep clean</h2>
+        <p class="hint">
+          Sweep everything except your whitelist on a timer, however your
+          browsing goes. Greylisted sites are cleaned by this too.
+        </p>
+        <label class="check"
+          ><input type="radio" name="deep-clean" value="off" disabled /> Off</label
+        >
+        <label class="check"
+          ><input type="radio" name="deep-clean" value="daily" disabled />
+          Daily</label
+        >
+        <label class="check"
+          ><input type="radio" name="deep-clean" value="weekly" disabled />
+          Weekly</label
+        >
+
         <!-- Starts locked; init() opens it only after checking entitlement. -->
         <p id="pro-locked" class="hint pro-locked"></p>
       </section>

@@ -9,7 +9,9 @@ import { updateBadge } from "../core/badge.ts";
 import { EXTENSION_NAME } from "../shared/constants.ts";
 import { getSettings } from "../shared/settings.ts";
 import { getPauseState, setPauseUntil } from "../shared/pause.ts";
+import { armSchedule, DEEP_CLEAN_ALARM, runIfDue } from "../core/schedule.ts";
 import { restoreSweep } from "../core/undo.ts";
+import { hasFeature } from "../shared/features.ts";
 import type {
   Message,
   CleanNowResponse,
@@ -96,8 +98,39 @@ chrome.storage.onChanged.addListener((_changes, area) => {
   if (area === "sync") void updateBadge();
 });
 
+async function deepCleanAllExceptWhitelist(): Promise<void> {
+  const lists = await getLists();
+  await cleanAllCookiesExcept(new Set(lists.white));
+  await updateBadge();
+}
+
+/** Honours the pause: a paused extension must not sweep on a timer either. */
+async function processSchedule(): Promise<void> {
+  if (!(await hasFeature("scheduledDeepCleans"))) return;
+  if ((await getPauseState()).paused) return;
+  const settings = await getSettings();
+  await runIfDue(settings.deepCleanSchedule, deepCleanAllExceptWhitelist);
+}
+
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === queue.CLEANUP_ALARM) processQueue();
+  if (alarm.name === DEEP_CLEAN_ALARM) {
+    serialized(processSchedule);
+  }
+});
+
+// Re-arm whenever the schedule setting changes, and keep the alarm in step
+// with an entitlement that may have lapsed.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "sync" || !("settings" in changes)) return;
+  serialized(async () => {
+    const settings = await getSettings();
+    await armSchedule(
+      (await hasFeature("scheduledDeepCleans"))
+        ? settings.deepCleanSchedule
+        : "off",
+    );
+  });
 });
 
 chrome.runtime.onMessage.addListener(
@@ -180,4 +213,13 @@ chrome.runtime.onStartup.addListener(() => {
 // makes a countdown survive the SW being killed mid-grace-period.
 serialized(() => tracker.rebuild(trackerEvents))
   .then(processQueue)
-  .then(updateBadge);
+  .then(updateBadge)
+  // A periodic alarm survives SW death but not an extension update, and the
+  // browser may have been closed when a clean came due — so re-arm and
+  // re-check on every start rather than only on the alarm.
+  .then(async () => {
+    const settings = await getSettings();
+    const unlocked = await hasFeature("scheduledDeepCleans");
+    await armSchedule(unlocked ? settings.deepCleanSchedule : "off");
+    await processSchedule();
+  });
