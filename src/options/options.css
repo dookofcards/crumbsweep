@@ -191,6 +191,29 @@ button:hover {
   background: color-mix(in srgb, #dc2626 10%, transparent);
 }
 
+.pro-tag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  vertical-align: 2px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.pro-locked {
+  border-left: 2px solid var(--accent);
+  padding-left: 10px;
+  opacity: 0.85;
+}
+
+.check input:disabled + span,
+.check:has(input:disabled) {
+  opacity: 0.55;
+}
+
 .activity-summary {
   margin: 4px 0 12px;
   font-size: 15px;

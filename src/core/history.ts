@@ -27,6 +27,8 @@ export interface SweepRecord {
   trigger: SweepTrigger;
   /** Cookies actually removed — may exceed cookies.length, which is capped. */
   count: number;
+  /** Cookies deliberately left in place by session protection. */
+  kept?: number;
   cookies: SweptCookie[];
 }
 

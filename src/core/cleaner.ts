@@ -1,6 +1,8 @@
 import { domainForHost } from "./domain.ts";
 import { describeCookies, recordSweep, type SweepTrigger } from "./history.ts";
+import { partitionBySession } from "./sessionCookies.ts";
 import { stashSweep } from "./undo.ts";
+import { hasFeature } from "../shared/features.ts";
 import { getSettings } from "../shared/settings.ts";
 
 export const STATS_KEY = "cleanStats";
@@ -93,22 +95,39 @@ export async function cleanDomainFull(
   seenOrigins: string[],
   trigger: SweepTrigger = "tab-close",
 ): Promise<number> {
+  const protectSessions =
+    hasFeature("sessionCookieProtection") &&
+    (await getSettings()).protectSessionCookies;
+
   const removed: chrome.cookies.Cookie[] = [];
   const cookieHosts = new Set<string>();
+  let kept = 0;
   for (const store of await chrome.cookies.getAllCookieStores()) {
     const cookies = await allCookiesInStore(store.id, domain);
     for (const cookie of cookies) {
       cookieHosts.add(cookie.domain.replace(/^\./, ""));
     }
-    removed.push(...(await removeCookies(cookies)));
+    const targets = protectSessions
+      ? (() => {
+          const split = partitionBySession(cookies, domain);
+          kept += split.keep.length;
+          return split.sweep;
+        })()
+      : cookies;
+    removed.push(...(await removeCookies(targets)));
   }
-  await cleanOptInData(domain, cookieHosts, seenOrigins);
+  // Wiping localStorage for an origin whose login cookie we just protected
+  // would log the user out anyway — plenty of apps keep their token there.
+  // Keeping the session means keeping the site's storage with it.
+  if (kept === 0) await cleanOptInData(domain, cookieHosts, seenOrigins);
+
   if (removed.length > 0) {
     await bumpStats(removed.length, domain);
     const record = await recordSweep({
       domain,
       trigger,
       count: removed.length,
+      kept,
       cookies: describeCookies(removed, domain),
     });
     await stashSweep(record.id, domain, removed);

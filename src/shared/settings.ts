@@ -17,6 +17,8 @@ export interface Settings {
   notifyOnClean: boolean;
   /** Toolbar badge counter (wired in step 6). */
   badgeMode: "today" | "site" | "off";
+  /** Pro: keep a site's login cookie while sweeping the rest. */
+  protectSessionCookies: boolean;
 }
 
 // Conservative defaults are a hard product requirement: cookies only,
@@ -29,6 +31,7 @@ export const DEFAULT_SETTINGS: Settings = {
   cleanServiceWorkers: false,
   notifyOnClean: false,
   badgeMode: "today",
+  protectSessionCookies: false,
 };
 
 export async function getSettings(): Promise<Settings> {

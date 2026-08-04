@@ -44,6 +44,8 @@ const el = {
   optCache: $<HTMLInputElement>("opt-cache"),
   optServiceWorkers: $<HTMLInputElement>("opt-serviceworkers"),
   optNotify: $<HTMLInputElement>("opt-notify"),
+  optProtectSessions: $<HTMLInputElement>("opt-protect-sessions"),
+  proLocked: $("pro-locked"),
   whiteForm: $<HTMLFormElement>("white-form"),
   whiteInput: $<HTMLInputElement>("white-input"),
   whiteList: $<HTMLUListElement>("white-list"),
@@ -359,7 +361,10 @@ function renderRecord(
     hour: "numeric",
     minute: "2-digit",
   });
-  meta.textContent = `${record.count} · ${time}`;
+  meta.textContent =
+    record.kept && record.kept > 0
+      ? `${record.count} swept, ${record.kept} kept · ${time}`
+      : `${record.count} · ${time}`;
   meta.title = TRIGGER_LABEL[record.trigger];
 
   const row = document.createElement("span");
@@ -480,6 +485,20 @@ async function init(): Promise<void> {
   el.optCache.checked = settings.cleanCache;
   el.optServiceWorkers.checked = settings.cleanServiceWorkers;
   el.optNotify.checked = settings.notifyOnClean;
+  el.optProtectSessions.checked = settings.protectSessionCookies;
+
+  // The control is shown to everyone; only saving is gated. Seeing exactly
+  // what the paid tier does beats a feature list.
+  const sessionsUnlocked = hasFeature("sessionCookieProtection");
+  el.optProtectSessions.disabled = !sessionsUnlocked;
+  el.proLocked.hidden = sessionsUnlocked;
+  if (!sessionsUnlocked) {
+    el.proLocked.textContent =
+      "CrumbSweep Pro — a one-time unlock that funds the work. Everything you have today stays free.";
+  }
+  el.optProtectSessions.addEventListener("change", () =>
+    void save({ protectSessionCookies: el.optProtectSessions.checked }),
+  );
 
   el.graceSlider.addEventListener("input", () => {
     el.graceValue.textContent = formatGrace(Number(el.graceSlider.value));

@@ -49,6 +49,27 @@
         >
       </section>
 
+      <section id="pro-section">
+        <h2>Stay logged in <span class="pro-tag">Pro</span></h2>
+        <p class="hint">
+          Whitelisting a site keeps its trackers too. This keeps just the
+          cookie that signs you in and sweeps everything else — so you stay
+          logged in without keeping the tracking.
+        </p>
+        <label class="check"
+          ><input id="opt-protect-sessions" type="checkbox" /> Keep login and
+          session cookies for sites I visit</label
+        >
+        <p class="hint">
+          Identified by name and by being set by the site itself; a session
+          cookie from an ad network is never kept. Not perfect — use
+          <strong>Keep specific cookies</strong> in the popup when it guesses
+          wrong. Sites with a kept cookie also keep their localStorage, since
+          wiping it would sign you out anyway.
+        </p>
+        <p id="pro-locked" class="hint pro-locked" hidden></p>
+      </section>
+
       <section>
         <h2>Toolbar badge</h2>
         <p class="hint">Counter shown on the CrumbSweep icon.</p>
