@@ -1,7 +1,22 @@
 # CrumbSweep — Manual QA Checklist
 
 Run against a build loaded unpacked from `dist/` (`npm run build`, then
-`chrome://extensions` → Load unpacked). Automated unit tests: `npm test`.
+`chrome://extensions` → Load unpacked).
+
+Automated: `npm test` (unit) and `npm run e2e` (drives real Chrome with the
+extension loaded — cookie removal, undo round-trips, pro gating, and the
+zero-network guarantee). The checks below are the ones that still need a
+human, mostly because they involve restarting the browser or watching
+timing.
+
+**Flip to Pro locally** — in the extension's service worker console:
+
+```js
+chrome.storage.local.set({ proEntitlement: { active: true, checkedAt: Date.now() } });
+```
+
+Set `active: false` to go back. This is how to exercise the pro sections
+without a payment account.
 
 **Cookie inspection helper** — in the extension's service worker console:
 
@@ -82,6 +97,56 @@ pending queue, stats, pause) and `chrome.storage.sync.get(console.log)`
       toggle; enabled → toast on auto-clean only (not clean-now).
 - [ ] "Clean all except whitelisted" spares the whitelist, cleans greylist,
       shows confirm first.
+
+## Activity log
+
+- [ ] After a few sweeps, options → Activity shows a 7-day total, top source
+      hosts, and per-day entries; expanding one lists cookie names.
+- [ ] Cookies set by another site are marked, and the count of them in the
+      summary line matches what the expanded entries show.
+- [ ] `chrome.storage.local.get(console.log)` shows **no cookie values**
+      anywhere in `sweepLog`.
+- [ ] "Clear activity" empties the log and the summary.
+- [ ] Log survives a browser restart; entries older than 30 days disappear.
+
+## Undo
+
+- [ ] After an auto-clean, the popup offers to put the cookies back; clicking
+      it restores them and reloading the site keeps you logged in.
+- [ ] The offer disappears after ~10 minutes, and after being used once.
+- [ ] Quit Chrome fully and relaunch → no undo is offered for sweeps from the
+      previous session (values are memory-only, by design).
+- [ ] Kill the service worker mid-window, then reopen the popup → the undo
+      offer is still there.
+- [ ] Restore a site using a **secure, HttpOnly** login cookie and confirm the
+      session actually works, not just that a cookie reappeared.
+
+## Pro features (flip the entitlement first)
+
+- [ ] With Pro off: the "Stay logged in" toggle and schedule radios are
+      disabled, and the popup's "Keep specific cookies" list is visible but
+      Save is disabled.
+- [ ] With Pro on and session protection enabled: closing a logged-in site's
+      last tab keeps you logged in, while its analytics cookies are gone.
+      Activity shows "N swept, M kept".
+- [ ] Keep-rules: tick a cookie in the popup, save, sweep → exactly that
+      cookie survives. Wildcards (`pref_*`) match as expected.
+- [ ] Turning Pro back off makes all of it inert again — sweeps go back to
+      removing everything.
+- [ ] Scheduled deep clean: enabling it does **not** clean immediately.
+- [ ] Deep clean respects pause.
+
+## Payment (only once EXTENSIONPAY_ID is set)
+
+- [ ] With the slug empty: no `content_scripts` in the built manifest, no
+      `extpay/` directory in `dist/`, options says "coming soon", and
+      DevTools → Network shows nothing.
+- [ ] With the slug set but before clicking Upgrade: still zero network
+      requests; `self.ExtPay` is undefined in the service worker console.
+- [ ] Clicking Upgrade opens the ExtensionPay checkout, and only then does any
+      request appear.
+- [ ] Completing a test payment flips the entitlement without a restart.
+- [ ] Going offline after purchase does not revoke Pro.
 
 ## Incognito
 

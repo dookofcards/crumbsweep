@@ -31,11 +31,28 @@ Matching is per **whole site** (eTLD+1 via the public suffix list), so
 - **Import your Cookie AutoDelete JSON export** — whitelist and greylist
   carry over; plain domain-per-line text files work too; export as JSON
 - Clean the current site on demand, or everything except your whitelist
+- **Activity log** — what was swept, when, and which cookies came from
+  somewhere other than the site you were on
+- **Undo a sweep** — put the cookies back if you lost a session you wanted
 - Opt-in deeper cleaning: localStorage, IndexedDB, cache, service workers
 - Pause auto-cleaning (15 min / 1 hour / until you resume)
 - Badge counter: cookies cleaned today or for the current site
 - Pinned tabs are never cleaned while pinned
 - Conservative defaults — cookies only, nothing aggressive
+
+## Pro
+
+Everything above is free and always will be. Pro adds precision, never
+takes anything away:
+
+- **Stay logged in** — keep a site's login cookie while sweeping its
+  trackers, instead of whitelisting the whole site and keeping both
+- **Keep specific cookies** — pick exactly which of a site's cookies survive
+- **Restore older sweeps** — undoing the most recent one stays free
+- **Scheduled deep clean** — daily or weekly, whatever your browsing does
+
+Pro code lives in this repository like everything else. If you build from
+source, you can use it. The unlock exists so the work gets funded.
 
 ## Privacy: zero data collection
 
@@ -46,6 +63,13 @@ cookie API requires it to *delete* cookies. See the
 [privacy policy](docs/privacy-policy.html) — and since the code is right
 here, you can verify all of this yourself.
 
+The one exception, and only if you choose it: buying Pro is handled by
+ExtensionPay. That is the only situation in which CrumbSweep contacts a
+server, it happens only after you click Upgrade, and it never sends your
+lists, settings, or anything about your browsing. Until then the payment
+library is not even loaded. The activity log and undo buffer are local —
+undo holds cookie values in memory only, never on disk.
+
 ## Building from source
 
 Requires Node.js 24+.
@@ -55,6 +79,7 @@ npm install
 npm run build      # development build → dist/ (load unpacked)
 npm run watch      # rebuild on change
 npm test           # unit tests (vitest)
+npm run e2e        # end-to-end tests in real Chrome (needs a display)
 npm run typecheck  # strict TypeScript check
 npm run package    # minified store-ready crumbsweep-v<version>.zip
 ```
