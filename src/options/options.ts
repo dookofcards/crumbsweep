@@ -4,6 +4,12 @@ import {
   parseImport,
 } from "../core/importExport.ts";
 import {
+  clearHistory,
+  getHistory,
+  summarize as summarizeSweeps,
+  type SweepRecord,
+} from "../core/history.ts";
+import {
   getLists,
   normalizeEntry,
   setListMembership,
@@ -51,6 +57,10 @@ const el = {
   importToGrey: $<HTMLButtonElement>("import-to-grey"),
   importCancel: $<HTMLButtonElement>("import-cancel"),
   importResult: $("import-result"),
+  activitySummary: $("activity-summary"),
+  activitySources: $<HTMLUListElement>("activity-sources"),
+  activityLog: $("activity-log"),
+  btnClearHistory: $<HTMLButtonElement>("btn-clear-history"),
   version: $("version"),
   linkHome: $<HTMLAnchorElement>("link-home"),
   linkRate: $<HTMLAnchorElement>("link-rate"),
@@ -218,6 +228,153 @@ async function onExport(): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
+// --- activity ---
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+const TRIGGER_LABEL: Record<SweepRecord["trigger"], string> = {
+  "tab-close": "last tab closed",
+  manual: "cleaned by hand",
+  startup: "greylist, browser start",
+  "clean-all": "clean everything",
+};
+
+function renderSummary(records: SweepRecord[]): void {
+  const week = summarizeSweeps(records, Date.now() - WEEK_MS);
+  el.activitySummary.replaceChildren();
+  if (week.cookies === 0) {
+    el.activitySummary.textContent =
+      "Nothing swept in the last 7 days. Close a site's last tab and it will show up here.";
+    return;
+  }
+  const big = document.createElement("span");
+  big.className = "big";
+  big.textContent = week.cookies.toLocaleString();
+  const tail = document.createTextNode(
+    ` cookies swept in the last 7 days, across ${week.sites} site${
+      week.sites === 1 ? "" : "s"
+    }${
+      week.thirdPartyCookies > 0
+        ? ` — ${week.thirdPartyCookies.toLocaleString()} of them set by somewhere else.`
+        : "."
+    }`,
+  );
+  el.activitySummary.append(big, tail);
+}
+
+function renderSources(records: SweepRecord[]): void {
+  const week = summarizeSweeps(records, Date.now() - WEEK_MS);
+  el.activitySources.replaceChildren();
+  const max = week.topSources[0]?.count ?? 0;
+  for (const source of week.topSources) {
+    const li = document.createElement("li");
+    if (source.thirdParty) li.className = "third-party";
+    const bar = document.createElement("span");
+    bar.className = "bar";
+    bar.style.width = `${Math.round((source.count / max) * 90)}px`;
+    const host = document.createElement("span");
+    host.className = "host";
+    host.textContent = source.host;
+    if (source.thirdParty) host.title = "Set by a different site than the one you visited";
+    const count = document.createElement("span");
+    count.className = "count";
+    count.textContent = String(source.count);
+    li.append(bar, host, count);
+    el.activitySources.append(li);
+  }
+}
+
+function dayLabel(at: number): string {
+  const date = new Date(at);
+  const today = new Date();
+  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+  const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  if (sameDay(date, today)) return "Today";
+  if (sameDay(date, yesterday)) return "Yesterday";
+  return date.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function renderRecord(record: SweepRecord): HTMLElement {
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+
+  const site = document.createElement("span");
+  site.className = "site";
+  site.textContent = record.domain ?? "Every site except the whitelist";
+
+  const meta = document.createElement("span");
+  meta.className = "meta";
+  const time = new Date(record.at).toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  meta.textContent = `${record.count} · ${time}`;
+  meta.title = TRIGGER_LABEL[record.trigger];
+
+  const row = document.createElement("span");
+  row.className = "row";
+  row.append(site, meta);
+  summary.append(row);
+  details.append(summary);
+
+  const names = document.createElement("ul");
+  names.className = "names";
+  for (const cookie of record.cookies) {
+    const li = document.createElement("li");
+    li.textContent = cookie.name;
+    if (cookie.thirdParty) {
+      li.className = "tp";
+      li.textContent = `${cookie.name} — ${cookie.host}`;
+    }
+    names.append(li);
+  }
+  if (record.count > record.cookies.length) {
+    const li = document.createElement("li");
+    li.textContent = `…and ${record.count - record.cookies.length} more`;
+    names.append(li);
+  }
+  const trigger = document.createElement("li");
+  trigger.textContent = TRIGGER_LABEL[record.trigger];
+  trigger.style.opacity = "0.6";
+  names.append(trigger);
+  details.append(names);
+  return details;
+}
+
+function renderLog(records: SweepRecord[]): void {
+  el.activityLog.replaceChildren();
+  if (records.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = "No sweeps recorded yet.";
+    el.activityLog.append(empty);
+    return;
+  }
+  let currentDay = "";
+  for (const record of records) {
+    const label = dayLabel(record.at);
+    if (label !== currentDay) {
+      currentDay = label;
+      const heading = document.createElement("p");
+      heading.className = "day";
+      heading.textContent = label;
+      el.activityLog.append(heading);
+    }
+    el.activityLog.append(renderRecord(record));
+  }
+}
+
+async function refreshActivity(): Promise<void> {
+  const records = await getHistory();
+  renderSummary(records);
+  renderSources(records);
+  renderLog(records);
+}
+
 // --- clean everything ---
 
 async function onCleanAll(): Promise<void> {
@@ -235,6 +392,7 @@ async function onCleanAll(): Promise<void> {
   el.cleanAllResult.textContent = `Removed ${response.removed} cookie${
     response.removed === 1 ? "" : "s"
   }.`;
+  await refreshActivity();
 }
 
 // --- init ---
@@ -284,6 +442,13 @@ async function init(): Promise<void> {
   bindAddForm(el.whiteForm, el.whiteInput, "white");
   bindAddForm(el.greyForm, el.greyInput, "grey");
   await refreshLists();
+  await refreshActivity();
+
+  el.btnClearHistory.addEventListener("click", async () => {
+    await clearHistory();
+    await refreshActivity();
+    flashSaved();
+  });
 
   el.btnCleanAll.addEventListener("click", () => void onCleanAll());
 

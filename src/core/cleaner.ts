@@ -1,4 +1,5 @@
 import { domainForHost } from "./domain.ts";
+import { describeCookies, recordSweep, type SweepTrigger } from "./history.ts";
 import { getSettings } from "../shared/settings.ts";
 
 export const STATS_KEY = "cleanStats";
@@ -63,10 +64,11 @@ async function allCookiesInStore(
   return result;
 }
 
+/** Returns the cookies actually removed, so history logs reality. */
 async function removeCookies(
   cookies: chrome.cookies.Cookie[],
-): Promise<number> {
-  let removed = 0;
+): Promise<chrome.cookies.Cookie[]> {
+  const removed: chrome.cookies.Cookie[] = [];
   for (const cookie of cookies) {
     const details: chrome.cookies.CookieDetails = {
       url: cookieUrl(cookie),
@@ -75,7 +77,7 @@ async function removeCookies(
     };
     if (cookie.partitionKey) details.partitionKey = cookie.partitionKey;
     const gone = await chrome.cookies.remove(details);
-    if (gone !== null) removed++;
+    if (gone !== null) removed.push(cookie);
   }
   return removed;
 }
@@ -88,19 +90,28 @@ async function removeCookies(
 export async function cleanDomainFull(
   domain: string,
   seenOrigins: string[],
+  trigger: SweepTrigger = "tab-close",
 ): Promise<number> {
-  let removed = 0;
+  const removed: chrome.cookies.Cookie[] = [];
   const cookieHosts = new Set<string>();
   for (const store of await chrome.cookies.getAllCookieStores()) {
     const cookies = await allCookiesInStore(store.id, domain);
     for (const cookie of cookies) {
       cookieHosts.add(cookie.domain.replace(/^\./, ""));
     }
-    removed += await removeCookies(cookies);
+    removed.push(...(await removeCookies(cookies)));
   }
   await cleanOptInData(domain, cookieHosts, seenOrigins);
-  if (removed > 0) await bumpStats(removed, domain);
-  return removed;
+  if (removed.length > 0) {
+    await bumpStats(removed.length, domain);
+    await recordSweep({
+      domain,
+      trigger,
+      count: removed.length,
+      cookies: describeCookies(removed, domain),
+    });
+  }
+  return removed.length;
 }
 
 async function cleanOptInData(
@@ -136,15 +147,24 @@ async function cleanOptInData(
 export async function cleanAllCookiesExcept(
   spared: ReadonlySet<string>,
 ): Promise<number> {
-  let removed = 0;
+  const removed: chrome.cookies.Cookie[] = [];
   for (const store of await chrome.cookies.getAllCookieStores()) {
     const targets = (await allCookiesInStore(store.id)).filter(
       (cookie) => !spared.has(domainForHost(cookie.domain)),
     );
-    removed += await removeCookies(targets);
+    removed.push(...(await removeCookies(targets)));
   }
-  if (removed > 0) await bumpStats(removed);
-  return removed;
+  if (removed.length > 0) {
+    await bumpStats(removed.length);
+    await recordSweep({
+      domain: null,
+      trigger: "clean-all",
+      count: removed.length,
+      // No single site to compare against, so nothing is "third party" here.
+      cookies: describeCookies(removed, null),
+    });
+  }
+  return removed.length;
 }
 
 function localDateString(): string {

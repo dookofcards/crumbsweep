@@ -50,6 +50,7 @@ async function executeClean(domain: string): Promise<void> {
   const removed = await cleanDomainFull(
     domain,
     await tracker.takeSeenOrigins(domain),
+    "tab-close",
   );
   if (removed > 0) await notifyCleaned(domain, removed);
   await updateBadge();
@@ -103,6 +104,7 @@ chrome.runtime.onMessage.addListener(
         cleanDomainFull(
           message.domain,
           await tracker.takeSeenOrigins(message.domain),
+          "manual",
         ),
       ).then(async (removed) => {
         await updateBadge();
@@ -150,7 +152,11 @@ chrome.runtime.onStartup.addListener(() => {
     if ((await getPauseState()).paused) return;
     const lists = await getLists();
     for (const domain of lists.grey) {
-      await cleanDomainFull(domain, await tracker.takeSeenOrigins(domain));
+      await cleanDomainFull(
+        domain,
+        await tracker.takeSeenOrigins(domain),
+        "startup",
+      );
     }
   }).then(updateBadge);
 });

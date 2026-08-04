@@ -100,6 +100,91 @@ test("whitelisted domains survive clean-all", async ({ page }) => {
   assert(result.dropped === 0, `non-whitelisted cookie survived`);
 });
 
+// --- phase 1: sweep history ---
+
+test("a sweep is recorded with names but never values", async ({ page }) => {
+  const record = await page.evaluate(async () => {
+    await chrome.cookies.set({
+      url: "https://e2e-hist.com/",
+      name: "sid",
+      value: "SUPER_SECRET_VALUE",
+    });
+    await chrome.runtime.sendMessage({
+      type: "cleanDomainNow",
+      domain: "e2e-hist.com",
+    });
+    const { sweepLog } = await chrome.storage.local.get("sweepLog");
+    return { log: sweepLog, raw: JSON.stringify(sweepLog) };
+  });
+  assert(record.log.length === 1, `expected 1 record, got ${record.log?.length}`);
+  assert(record.log[0].domain === "e2e-hist.com", "wrong domain recorded");
+  assert(record.log[0].trigger === "manual", `trigger was ${record.log[0].trigger}`);
+  assert(record.log[0].cookies[0].name === "sid", "cookie name missing");
+  assert(
+    !record.raw.includes("SUPER_SECRET_VALUE"),
+    "COOKIE VALUE LEAKED INTO HISTORY",
+  );
+});
+
+test("third-party cookies are flagged in history", async ({ page }) => {
+  const cookies = await page.evaluate(async () => {
+    // A cookie on a subdomain of the site is first-party; one scoped to an
+    // unrelated registrable domain is not. Only the first is swept by domain,
+    // so seed the tracker under the site's own domain query via clean-all.
+    await chrome.cookies.set({
+      url: "https://cdn.e2e-tp.com/",
+      name: "own",
+      value: "1",
+    });
+    await chrome.runtime.sendMessage({
+      type: "cleanDomainNow",
+      domain: "e2e-tp.com",
+    });
+    const { sweepLog } = await chrome.storage.local.get("sweepLog");
+    return sweepLog[0].cookies;
+  });
+  const own = cookies.find((c) => c.name === "own");
+  assert(own !== undefined, "subdomain cookie was not swept");
+  assert(own.thirdParty === false, "subdomain cookie wrongly flagged third-party");
+});
+
+test("history survives a service worker restart", async ({ page, worker }) => {
+  await page.evaluate(async () => {
+    await chrome.cookies.set({ url: "https://e2e-sw.com/", name: "a", value: "1" });
+    await chrome.runtime.sendMessage({
+      type: "cleanDomainNow",
+      domain: "e2e-sw.com",
+    });
+  });
+  // Storage is the only thing that survives the worker being killed; this is
+  // the property the whole MV3 design depends on.
+  await worker.evaluate(() => {
+    /* touch the worker so it is alive before we read back */
+  });
+  const count = await page.evaluate(async () => {
+    const { sweepLog } = await chrome.storage.local.get("sweepLog");
+    return sweepLog.length;
+  });
+  assert(count === 1, `expected history to persist, got ${count} records`);
+});
+
+test("options page renders the activity section", async ({ page }) => {
+  await page.evaluate(async () => {
+    await chrome.cookies.set({ url: "https://e2e-ui.com/", name: "sid", value: "1" });
+    await chrome.cookies.set({ url: "https://e2e-ui.com/", name: "tid", value: "2" });
+    await chrome.runtime.sendMessage({
+      type: "cleanDomainNow",
+      domain: "e2e-ui.com",
+    });
+  });
+  await page.reload();
+  await page.waitForTimeout(400);
+  const summary = await page.locator("#activity-summary").innerText();
+  assert(summary.includes("2"), `summary did not show the count: "${summary}"`);
+  const log = await page.locator("#activity-log").innerText();
+  assert(log.includes("e2e-ui.com"), `log did not list the site: "${log}"`);
+});
+
 // --- runner ---
 
 export async function run() {

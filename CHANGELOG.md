@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0 — 2026-08-04
+
+- **Activity log.** Options now shows what was swept: a 7-day summary, the
+  hosts that set the most cookies, and a per-sweep breakdown grouped by day.
+  Cookies set by a different site than the one you visited are called out.
+- Popup shows the three most recent sweeps.
+- History is metadata only — cookie names, hosts, counts and timestamps.
+  Values are never written to storage. Kept 30 days on this device, cleared
+  with one button, never sent anywhere.
+
 ## 0.1.1 — 2026-08-04
 
 - Options page footer: version number, website link, and a support link

@@ -110,6 +110,42 @@ main {
   color: #dc2626;
 }
 
+.recent-card {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  font-size: 12px;
+}
+
+.recent-label {
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+
+.recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.recent-list li {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.recent-list .site {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-list .count {
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
 .pause-card {
   border-top: 1px solid var(--line);
   padding-top: 10px;

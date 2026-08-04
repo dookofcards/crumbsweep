@@ -60,6 +60,9 @@ export function makeChromeMock() {
     storage: {
       local: makeStorageArea(),
       sync: makeStorageArea(),
+      // Memory-only in Chrome; an ordinary area is a faithful enough stand-in
+      // for tests, which never restart the browser.
+      session: makeStorageArea(),
     },
     alarms: makeAlarms(),
   };

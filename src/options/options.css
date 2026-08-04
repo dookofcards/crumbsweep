@@ -191,6 +191,118 @@ button:hover {
   background: color-mix(in srgb, #dc2626 10%, transparent);
 }
 
+.activity-summary {
+  margin: 4px 0 12px;
+  font-size: 15px;
+}
+
+.activity-summary .big {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.source-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  font-size: 13px;
+}
+
+.source-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.source-list .bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--accent);
+  opacity: 0.45;
+  min-width: 2px;
+}
+
+.source-list .third-party .bar {
+  opacity: 0.9;
+}
+
+.source-list .host {
+  word-break: break-all;
+}
+
+.source-list .count {
+  margin-left: auto;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.sweep-log {
+  max-height: 320px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.sweep-log .day {
+  margin-top: 10px;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.sweep-log details {
+  border-bottom: 1px solid var(--line);
+  padding: 4px 2px;
+}
+
+/* summary must stay list-item for the disclosure triangle; the flex row
+   goes inside it. */
+.sweep-log summary {
+  cursor: pointer;
+}
+
+.sweep-log summary::marker {
+  color: var(--accent);
+}
+
+.sweep-log .row {
+  display: inline-flex;
+  width: calc(100% - 20px);
+  gap: 8px;
+  align-items: baseline;
+  vertical-align: top;
+}
+
+.sweep-log .site {
+  word-break: break-all;
+}
+
+.sweep-log .meta {
+  margin-left: auto;
+  opacity: 0.6;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sweep-log .names {
+  margin: 6px 0 4px 14px;
+  padding: 0;
+  list-style: none;
+  opacity: 0.75;
+  word-break: break-all;
+}
+
+.sweep-log .names .tp {
+  color: var(--accent);
+}
+
+.sweep-log .empty {
+  opacity: 0.5;
+  padding: 6px 0;
+}
+
 .page-footer {
   display: flex;
   flex-wrap: wrap;

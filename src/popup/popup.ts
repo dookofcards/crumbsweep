@@ -1,5 +1,6 @@
 import { domainForUrl } from "../core/domain.ts";
 import { getStats } from "../core/cleaner.ts";
+import { getHistory } from "../core/history.ts";
 import {
   listStatusFor,
   setListMembership,
@@ -29,6 +30,8 @@ const el = {
   feedback: $("feedback"),
   statToday: $("stat-today"),
   statTotal: $("stat-total"),
+  recentCard: $("recent-card"),
+  recentList: $<HTMLUListElement>("recent-list"),
   pauseActive: $("pause-active"),
   pauseStatus: $("pause-status"),
   pauseButtons: $("pause-buttons"),
@@ -88,6 +91,32 @@ async function refreshStats(): Promise<void> {
   el.statTotal.textContent = String(stats.total);
 }
 
+function relativeTime(at: number): string {
+  const minutes = Math.round((Date.now() - at) / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+async function refreshRecent(): Promise<void> {
+  const recent = (await getHistory()).slice(0, 3);
+  el.recentCard.hidden = recent.length === 0;
+  el.recentList.replaceChildren();
+  for (const record of recent) {
+    const li = document.createElement("li");
+    const site = document.createElement("span");
+    site.className = "site";
+    site.textContent = record.domain ?? "All sites";
+    const count = document.createElement("span");
+    count.className = "count";
+    count.textContent = `${record.count} · ${relativeTime(record.at)}`;
+    li.append(site, count);
+    el.recentList.append(li);
+  }
+}
+
 function showFeedback(text: string): void {
   el.feedback.textContent = text;
   el.feedback.hidden = false;
@@ -115,7 +144,7 @@ el.btnClean.addEventListener("click", async () => {
     `Removed ${response.removed} cookie${response.removed === 1 ? "" : "s"} for ${currentDomain}.`,
   );
   el.btnClean.disabled = false;
-  await refreshStats();
+  await Promise.all([refreshStats(), refreshRecent()]);
 });
 
 el.btnSettings.addEventListener("click", () => {
@@ -152,7 +181,12 @@ el.pauseResume.addEventListener("click", () => void setPause(null));
 async function init(): Promise<void> {
   el.name.textContent = EXTENSION_NAME;
   currentDomain = await activeTabDomain();
-  await Promise.all([refreshSite(), refreshStats(), refreshPause()]);
+  await Promise.all([
+    refreshSite(),
+    refreshStats(),
+    refreshPause(),
+    refreshRecent(),
+  ]);
 }
 
 void init();

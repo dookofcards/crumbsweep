@@ -4,4 +4,7 @@ dist/
 brief.md
 .stage-ext/
 .stage-profile/
+.e2e-profile/
+.shot-profile/
+.shot.mjs
 planning/

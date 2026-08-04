@@ -11,5 +11,6 @@ export function chromeMock(): ChromeMock {
 beforeEach(() => {
   mock.storage.local._reset();
   mock.storage.sync._reset();
+  mock.storage.session._reset();
   mock.alarms._reset();
 });
