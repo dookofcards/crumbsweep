@@ -15,6 +15,8 @@ import {
   setListMembership,
   type ListType,
 } from "../core/lists.ts";
+import { getRestorable } from "../core/undo.ts";
+import { hasFeature } from "../shared/features.ts";
 import {
   EXTENSION_NAME,
   HOMEPAGE_URL,
@@ -24,6 +26,8 @@ import {
 import type {
   CleanAllExceptWhitelistMessage,
   CleanNowResponse,
+  UndoSweepMessage,
+  UndoSweepResponse,
 } from "../shared/messages.ts";
 import { getSettings, updateSettings, type Settings } from "../shared/settings.ts";
 
@@ -298,7 +302,50 @@ function dayLabel(at: number): string {
   });
 }
 
-function renderRecord(record: SweepRecord): HTMLElement {
+async function undoFromLog(sweepId: string, button: HTMLButtonElement) {
+  button.disabled = true;
+  const message: UndoSweepMessage = { type: "undoSweep", sweepId };
+  const result: UndoSweepResponse = await chrome.runtime.sendMessage(message);
+  button.textContent = result.available
+    ? `Put back ${result.restored}`
+    : "Expired";
+  await refreshActivity();
+}
+
+/**
+ * Free tier restores the most recent sweep; older ones are pro. The button is
+ * shown either way so the limit is visible rather than hidden.
+ */
+function undoButton(
+  record: SweepRecord,
+  restorable: Map<string, number>,
+  newestId: string | undefined,
+): HTMLButtonElement | null {
+  const count = restorable.get(record.id);
+  if (count === undefined) return null;
+  const button = document.createElement("button");
+  button.className = "undo-inline";
+  const isNewest = record.id === newestId;
+  if (isNewest || hasFeature("historyRestore")) {
+    button.textContent = `Put back ${count}`;
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      void undoFromLog(record.id, button);
+    });
+  } else {
+    button.textContent = "Put back";
+    button.disabled = true;
+    button.title =
+      "Restoring older sweeps is a Pro feature. The most recent sweep can always be undone.";
+  }
+  return button;
+}
+
+function renderRecord(
+  record: SweepRecord,
+  restorable: Map<string, number>,
+  newestId: string | undefined,
+): HTMLElement {
   const details = document.createElement("details");
   const summary = document.createElement("summary");
 
@@ -342,10 +389,24 @@ function renderRecord(record: SweepRecord): HTMLElement {
   trigger.style.opacity = "0.6";
   names.append(trigger);
   details.append(names);
+
+  const undo = undoButton(record, restorable, newestId);
+  if (undo !== null) {
+    const row = document.createElement("p");
+    row.className = "undo-row";
+    const note = document.createElement("span");
+    note.textContent = "Cookies still in memory — restorable for 10 minutes.";
+    row.append(undo, note);
+    details.append(row);
+  }
   return details;
 }
 
-function renderLog(records: SweepRecord[]): void {
+function renderLog(
+  records: SweepRecord[],
+  restorable: Map<string, number>,
+  newestId: string | undefined,
+): void {
   el.activityLog.replaceChildren();
   if (records.length === 0) {
     const empty = document.createElement("p");
@@ -364,15 +425,21 @@ function renderLog(records: SweepRecord[]): void {
       heading.textContent = label;
       el.activityLog.append(heading);
     }
-    el.activityLog.append(renderRecord(record));
+    el.activityLog.append(renderRecord(record, restorable, newestId));
   }
 }
 
 async function refreshActivity(): Promise<void> {
-  const records = await getHistory();
+  const [records, restorableList] = await Promise.all([
+    getHistory(),
+    getRestorable(),
+  ]);
+  const restorable = new Map(
+    restorableList.map((entry) => [entry.sweepId, entry.count]),
+  );
   renderSummary(records);
   renderSources(records);
-  renderLog(records);
+  renderLog(records, restorable, restorableList[0]?.sweepId);
 }
 
 // --- clean everything ---

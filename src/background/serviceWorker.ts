@@ -9,7 +9,12 @@ import { updateBadge } from "../core/badge.ts";
 import { EXTENSION_NAME } from "../shared/constants.ts";
 import { getSettings } from "../shared/settings.ts";
 import { getPauseState, setPauseUntil } from "../shared/pause.ts";
-import type { Message, CleanNowResponse } from "../shared/messages.ts";
+import { restoreSweep } from "../core/undo.ts";
+import type {
+  Message,
+  CleanNowResponse,
+  UndoSweepResponse,
+} from "../shared/messages.ts";
 import { serialized } from "../shared/lock.ts";
 
 const trackerEvents: tracker.TrackerEvents = {
@@ -120,6 +125,15 @@ chrome.runtime.onMessage.addListener(
       }).then(async (removed) => {
         await updateBadge();
         const response: CleanNowResponse = { removed };
+        sendResponse(response);
+      });
+      return true;
+    }
+    // Serialized with cleans: an undo racing a sweep of the same domain would
+    // otherwise restore cookies that are about to be deleted, or vice versa.
+    if (message.type === "undoSweep") {
+      serialized(() => restoreSweep(message.sweepId)).then((result) => {
+        const response: UndoSweepResponse = result;
         sendResponse(response);
       });
       return true;

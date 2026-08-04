@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 — 2026-08-04
+
+- **Undo a sweep.** Closed a tab and lost a session you wanted? The popup
+  offers to put the cookies back, with every attribute intact.
+- Cookies waiting to be restored are held in memory only, never written to
+  disk. They last 10 minutes and are gone when Chrome closes — the popup
+  says so rather than implying more.
+- Sweeps too large to hold are not offered for undo at all, instead of
+  restoring part of one and calling it done.
+
 ## 0.2.0 — 2026-08-04
 
 - **Activity log.** Options now shows what was swept: a 7-day summary, the

@@ -1,6 +1,7 @@
 import { domainForUrl } from "../core/domain.ts";
 import { getStats } from "../core/cleaner.ts";
 import { getHistory } from "../core/history.ts";
+import { getRestorable } from "../core/undo.ts";
 import {
   listStatusFor,
   setListMembership,
@@ -11,6 +12,8 @@ import type {
   CleanDomainNowMessage,
   CleanNowResponse,
   SetPauseMessage,
+  UndoSweepMessage,
+  UndoSweepResponse,
 } from "../shared/messages.ts";
 import { getPauseState, type PauseUntil } from "../shared/pause.ts";
 
@@ -32,6 +35,8 @@ const el = {
   statTotal: $("stat-total"),
   recentCard: $("recent-card"),
   recentList: $<HTMLUListElement>("recent-list"),
+  undoCard: $("undo-card"),
+  btnUndo: $<HTMLButtonElement>("btn-undo"),
   pauseActive: $("pause-active"),
   pauseStatus: $("pause-status"),
   pauseButtons: $("pause-buttons"),
@@ -117,6 +122,39 @@ async function refreshRecent(): Promise<void> {
   }
 }
 
+// Free tier undoes the most recent sweep. Restoring anything older is a pro
+// feature and lives in the options activity log.
+let undoSweepId: string | null = null;
+
+async function refreshUndo(): Promise<void> {
+  const [latest] = await getRestorable();
+  undoSweepId = latest?.sweepId ?? null;
+  el.undoCard.hidden = latest === undefined;
+  if (latest === undefined) return;
+  const site = latest.domain ?? "all sites";
+  el.btnUndo.disabled = false;
+  el.btnUndo.textContent = `Undo — put back ${latest.count} cookie${
+    latest.count === 1 ? "" : "s"
+  } for ${site}`;
+}
+
+async function onUndo(): Promise<void> {
+  if (undoSweepId === null) return;
+  el.btnUndo.disabled = true;
+  const message: UndoSweepMessage = { type: "undoSweep", sweepId: undoSweepId };
+  const result: UndoSweepResponse = await chrome.runtime.sendMessage(message);
+  if (!result.available) {
+    showFeedback("That sweep has expired — nothing left to put back.");
+  } else {
+    showFeedback(
+      `Restored ${result.restored} cookie${result.restored === 1 ? "" : "s"}${
+        result.failed > 0 ? ` (${result.failed} could not be restored)` : ""
+      }. Reload the page to use them.`,
+    );
+  }
+  await refreshUndo();
+}
+
 function showFeedback(text: string): void {
   el.feedback.textContent = text;
   el.feedback.hidden = false;
@@ -144,8 +182,10 @@ el.btnClean.addEventListener("click", async () => {
     `Removed ${response.removed} cookie${response.removed === 1 ? "" : "s"} for ${currentDomain}.`,
   );
   el.btnClean.disabled = false;
-  await Promise.all([refreshStats(), refreshRecent()]);
+  await Promise.all([refreshStats(), refreshRecent(), refreshUndo()]);
 });
+
+el.btnUndo.addEventListener("click", () => void onUndo());
 
 el.btnSettings.addEventListener("click", () => {
   void chrome.runtime.openOptionsPage();
@@ -186,6 +226,7 @@ async function init(): Promise<void> {
     refreshStats(),
     refreshPause(),
     refreshRecent(),
+    refreshUndo(),
   ]);
 }
 

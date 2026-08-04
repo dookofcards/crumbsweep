@@ -6,5 +6,7 @@ brief.md
 .stage-profile/
 .e2e-profile/
 .shot-profile/
+.spike-profile/
 .shot.mjs
+.spike*.mjs
 planning/

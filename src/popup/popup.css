@@ -110,6 +110,37 @@ main {
   color: #dc2626;
 }
 
+.undo-card {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.undo-btn {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--ok);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.undo-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+}
+
+.undo-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.undo-note {
+  margin: 6px 0 0;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
 .recent-card {
   border-top: 1px solid var(--line);
   padding-top: 10px;

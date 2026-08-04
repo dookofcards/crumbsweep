@@ -16,11 +16,23 @@ export interface SetPauseMessage {
   until: PauseUntil | null;
 }
 
+export interface UndoSweepMessage {
+  type: "undoSweep";
+  sweepId: string;
+}
+
 export type Message =
   | CleanDomainNowMessage
   | CleanAllExceptWhitelistMessage
-  | SetPauseMessage;
+  | SetPauseMessage
+  | UndoSweepMessage;
 
 export interface CleanNowResponse {
   removed: number;
+}
+
+export interface UndoSweepResponse {
+  restored: number;
+  failed: number;
+  available: boolean;
 }

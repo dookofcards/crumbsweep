@@ -1,5 +1,6 @@
 import { domainForHost } from "./domain.ts";
 import { describeCookies, recordSweep, type SweepTrigger } from "./history.ts";
+import { stashSweep } from "./undo.ts";
 import { getSettings } from "../shared/settings.ts";
 
 export const STATS_KEY = "cleanStats";
@@ -104,12 +105,13 @@ export async function cleanDomainFull(
   await cleanOptInData(domain, cookieHosts, seenOrigins);
   if (removed.length > 0) {
     await bumpStats(removed.length, domain);
-    await recordSweep({
+    const record = await recordSweep({
       domain,
       trigger,
       count: removed.length,
       cookies: describeCookies(removed, domain),
     });
+    await stashSweep(record.id, domain, removed);
   }
   return removed.length;
 }
@@ -156,13 +158,14 @@ export async function cleanAllCookiesExcept(
   }
   if (removed.length > 0) {
     await bumpStats(removed.length);
-    await recordSweep({
+    const record = await recordSweep({
       domain: null,
       trigger: "clean-all",
       count: removed.length,
       // No single site to compare against, so nothing is "third party" here.
       cookies: describeCookies(removed, null),
     });
+    await stashSweep(record.id, null, removed);
   }
   return removed.length;
 }

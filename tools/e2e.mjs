@@ -185,6 +185,178 @@ test("options page renders the activity section", async ({ page }) => {
   assert(log.includes("e2e-ui.com"), `log did not list the site: "${log}"`);
 });
 
+// --- phase 2: undo ---
+
+test("a swept cookie can be restored byte for byte", async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    await chrome.cookies.set({
+      url: "https://e2e-undo.com/",
+      name: "sid",
+      value: "the-original-value",
+    });
+    const [before] = await chrome.cookies.getAll({ domain: "e2e-undo.com" });
+    await chrome.runtime.sendMessage({
+      type: "cleanDomainNow",
+      domain: "e2e-undo.com",
+    });
+    const gone = await chrome.cookies.getAll({ domain: "e2e-undo.com" });
+    const { sweepLog } = await chrome.storage.local.get("sweepLog");
+    const undo = await chrome.runtime.sendMessage({
+      type: "undoSweep",
+      sweepId: sweepLog[0].id,
+    });
+    const [after] = await chrome.cookies.getAll({ domain: "e2e-undo.com" });
+    return { before, goneCount: gone.length, undo, after };
+  });
+  assert(result.goneCount === 0, "cookie was not swept");
+  assert(result.undo.restored === 1, `restored ${result.undo.restored}, expected 1`);
+  assert(result.after !== undefined, "cookie was not restored");
+  assert(
+    result.after.value === "the-original-value",
+    `value changed: ${result.after?.value}`,
+  );
+  for (const field of ["name", "domain", "path", "secure", "httpOnly", "hostOnly"]) {
+    assert(
+      result.before[field] === result.after[field],
+      `${field} changed: ${result.before[field]} -> ${result.after[field]}`,
+    );
+  }
+});
+
+test("awkward cookie shapes survive the round trip", async ({ page }) => {
+  const diffs = await page.evaluate(async () => {
+    const seeds = [
+      // host-only + secure + strict, on a deep path
+      {
+        url: "https://e2e-shapes.com/deep/path",
+        name: "hostonly_secure",
+        value: "1",
+        secure: true,
+        httpOnly: true,
+        sameSite: "strict",
+        path: "/deep/path",
+      },
+      // domain cookie (leading dot), covers subdomains
+      {
+        url: "https://e2e-shapes.com/",
+        name: "domainwide",
+        value: "2",
+        domain: ".e2e-shapes.com",
+      },
+      // session cookie: no expirationDate at all
+      { url: "https://e2e-shapes.com/", name: "sessiononly", value: "3" },
+      // far-future persistent cookie
+      {
+        url: "https://e2e-shapes.com/",
+        name: "persistent",
+        value: "4",
+        expirationDate: Math.floor(Date.now() / 1000) + 86400 * 365,
+      },
+    ];
+    for (const seed of seeds) await chrome.cookies.set(seed);
+
+    const key = (c) => `${c.name}`;
+    const snapshot = async () => {
+      const all = await chrome.cookies.getAll({ domain: "e2e-shapes.com" });
+      return Object.fromEntries(all.map((c) => [key(c), c]));
+    };
+    const before = await snapshot();
+
+    await chrome.runtime.sendMessage({
+      type: "cleanDomainNow",
+      domain: "e2e-shapes.com",
+    });
+    const { sweepLog } = await chrome.storage.local.get("sweepLog");
+    await chrome.runtime.sendMessage({
+      type: "undoSweep",
+      sweepId: sweepLog[0].id,
+    });
+    const after = await snapshot();
+
+    const fields = [
+      "value",
+      "domain",
+      "path",
+      "secure",
+      "httpOnly",
+      "hostOnly",
+      "session",
+      "sameSite",
+      "expirationDate",
+    ];
+    const diffs = [];
+    for (const name of Object.keys(before)) {
+      if (!(name in after)) {
+        diffs.push(`${name}: not restored`);
+        continue;
+      }
+      for (const field of fields) {
+        if (before[name][field] !== after[name][field]) {
+          diffs.push(`${name}.${field}: ${before[name][field]} -> ${after[name][field]}`);
+        }
+      }
+    }
+    return { diffs, count: Object.keys(before).length };
+  });
+  assert(diffs.count === 4, `expected 4 seeded cookies, got ${diffs.count}`);
+  assert(diffs.diffs.length === 0, `round trip changed:\n        ${diffs.diffs.join("\n        ")}`);
+});
+
+test("undo is consumed and cannot be replayed", async ({ page }) => {
+  const second = await page.evaluate(async () => {
+    await chrome.cookies.set({ url: "https://e2e-once.com/", name: "a", value: "1" });
+    await chrome.runtime.sendMessage({
+      type: "cleanDomainNow",
+      domain: "e2e-once.com",
+    });
+    const { sweepLog } = await chrome.storage.local.get("sweepLog");
+    await chrome.runtime.sendMessage({ type: "undoSweep", sweepId: sweepLog[0].id });
+    return chrome.runtime.sendMessage({ type: "undoSweep", sweepId: sweepLog[0].id });
+  });
+  assert(second.available === false, "the same undo was offered twice");
+});
+
+test("undo values are never written to storage.local", async ({ page }) => {
+  const local = await page.evaluate(async () => {
+    await chrome.cookies.set({
+      url: "https://e2e-leak.com/",
+      name: "sid",
+      value: "MUST_NOT_PERSIST",
+    });
+    await chrome.runtime.sendMessage({
+      type: "cleanDomainNow",
+      domain: "e2e-leak.com",
+    });
+    return JSON.stringify(await chrome.storage.local.get(null));
+  });
+  assert(
+    !local.includes("MUST_NOT_PERSIST"),
+    "COOKIE VALUE REACHED DISK-BACKED STORAGE",
+  );
+});
+
+test("popup offers undo right after a sweep", async ({ page, extId }) => {
+  await page.evaluate(async () => {
+    await chrome.cookies.set({ url: "https://e2e-popup.com/", name: "a", value: "1" });
+    await chrome.cookies.set({ url: "https://e2e-popup.com/", name: "b", value: "2" });
+    await chrome.runtime.sendMessage({
+      type: "cleanDomainNow",
+      domain: "e2e-popup.com",
+    });
+  });
+  const popup = await page.context().newPage();
+  await popup.goto(`chrome-extension://${extId}/popup/popup.html`);
+  await popup.waitForTimeout(400);
+  const visible = await popup.locator("#undo-card").isVisible();
+  const label = await popup.locator("#btn-undo").innerText();
+  await popup.close();
+  assert(visible, "undo card was not shown");
+  assert(
+    label.includes("2") && label.includes("e2e-popup.com"),
+    `unexpected undo label: "${label}"`,
+  );
+});
+
 // --- runner ---
 
 export async function run() {
