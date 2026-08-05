@@ -16,7 +16,13 @@ const dist = path.join(root, "dist");
 const profile = path.join(root, ".e2e-profile");
 
 const tests = [];
-export const test = (name, fn) => tests.push({ name, fn });
+/**
+ * opts.skipInCi marks tests that talk to ExtensionPay's live API. Running
+ * those on every push would mint a throwaway user record per build and make
+ * the pipeline fail whenever a third party has a bad day.
+ */
+export const test = (name, fn, opts = {}) => tests.push({ name, fn, ...opts });
+const inCi = process.env.CI !== undefined && process.env.CI !== "";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -580,7 +586,7 @@ test("beginUpgrade actually opens a checkout when configured", async ({
     `unexpected checkout url: ${checkout.url()}`,
   );
   await checkout.close();
-});
+}, { skipInCi: true });
 
 test("a free user's session makes no external network requests", async ({
   page,
@@ -652,6 +658,7 @@ export async function run() {
   });
 
   const failures = [];
+  const skipped = [];
   try {
     let [worker] = context.serviceWorkers();
     if (!worker) worker = await context.waitForEvent("serviceworker");
@@ -662,7 +669,12 @@ export async function run() {
     await page.goto(`chrome-extension://${extId}/options/options.html`);
 
     const ctx = { page, context, extId, worker, pkgVersion };
-    for (const { name, fn } of tests) {
+    for (const { name, fn, skipInCi } of tests) {
+      if (skipInCi && inCi) {
+        skipped.push(name);
+        console.log(`  SKIP  ${name} (hits ExtensionPay's live API)`);
+        continue;
+      }
       try {
         // Each test starts from a clean slate so ordering never matters.
         await page.evaluate(async () => {
@@ -686,7 +698,11 @@ export async function run() {
     await rm(profile, { recursive: true, force: true });
   }
 
-  console.log(`\n${tests.length - failures.length}/${tests.length} e2e tests passed`);
+  const ran = tests.length - skipped.length;
+  console.log(
+    `\n${ran - failures.length}/${ran} e2e tests passed` +
+      (skipped.length ? ` (${skipped.length} skipped in CI)` : ""),
+  );
   if (failures.length) process.exitCode = 1;
 }
 
