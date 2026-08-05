@@ -3,10 +3,15 @@
 //
 // Three constraints shaped this file:
 //
-// 1. "No network requests of any kind" is the headline privacy claim. So
-//    ExtPay is not bundled into the service worker: it is a separate file
-//    pulled in with importScripts() only after the user has clicked Upgrade.
-//    A user who never clicks never loads it, never parses it, never connects.
+// 1. "No network requests of any kind" is the headline privacy claim. ExtPay
+//    is therefore never *called* until the user has clicked Upgrade — a free
+//    user's browser opens no connection, which an e2e test asserts.
+//
+//    It is loaded at service-worker startup rather than on demand, because
+//    MV3 only permits importScripts() during the worker's initial
+//    evaluation; calling it later fails with ERR_FAILED. Loading is inert —
+//    the file defines a function and nothing else runs in a worker context
+//    (its only top-level side effect is guarded by `typeof window`).
 //
 // 2. ExtPay.js is AGPLv3 while CrumbSweep is MIT. Shipping it as a discrete,
 //    unmodified file keeps the two separable and identifiable rather than
@@ -18,7 +23,6 @@
 import { EXTENSIONPAY_ID, paymentConfigured } from "../shared/constants.ts";
 import { getEntitlement, setEntitlement } from "../shared/features.ts";
 
-const EXTPAY_SCRIPT = "extpay/ExtPay.js";
 const PURCHASE_INITIATED_KEY = "purchaseInitiated";
 /** Entitlement is cached; re-check at most weekly, never on every startup. */
 const REVALIDATE_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -36,8 +40,6 @@ interface ExtPayClient {
   startBackground: () => void;
 }
 
-declare function importScripts(...urls: string[]): void;
-
 export async function hasInitiatedPurchase(): Promise<boolean> {
   const stored = await chrome.storage.local.get(PURCHASE_INITIATED_KEY);
   return stored[PURCHASE_INITIATED_KEY] === true;
@@ -50,24 +52,19 @@ async function markPurchaseInitiated(): Promise<void> {
 let client: ExtPayClient | undefined;
 
 /**
- * Loads ExtPay on first use. Module scope dies with the service worker, so
- * this re-runs after a wake-up — importScripts is idempotent within a worker
- * and the whole path is gated on the user having opted in.
+ * Builds the client from the global that serviceWorker.ts imported at
+ * startup. Returns undefined if the script is absent, so a missing or
+ * blocked file can never break sweeping — the part that actually matters.
  */
 function loadClient(): ExtPayClient | undefined {
   if (client !== undefined) return client;
   if (!paymentConfigured()) return undefined;
+  const global = self as unknown as { ExtPay?: (id: string) => ExtPayClient };
+  if (global.ExtPay === undefined) return undefined;
   try {
-    const global = self as unknown as {
-      ExtPay?: (id: string) => ExtPayClient;
-    };
-    if (global.ExtPay === undefined) importScripts(EXTPAY_SCRIPT);
-    if (global.ExtPay === undefined) return undefined;
     client = global.ExtPay(EXTENSIONPAY_ID);
     return client;
   } catch {
-    // Missing file or a blocked import must never break sweeping, which is
-    // the part of the extension that actually matters.
     return undefined;
   }
 }

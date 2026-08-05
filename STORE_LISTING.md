@@ -164,8 +164,8 @@ code is public: https://github.com/dookofcards/crumbsweep
 
 No remote code. All code is bundled in the package. The optional Pro
 purchase is handled by the ExtensionPay library, which ships inside the
-package as extpay/ExtPay.js and is loaded only after the user clicks
-"Unlock CrumbSweep Pro". A user who never clicks it makes no network
+package as extpay/ExtPay.js. It is never invoked unless the user clicks
+"Unlock CrumbSweep Pro"; a user who never clicks it makes no network
 requests at all, which can be confirmed in the service worker's DevTools
 Network panel. No cookie data, browsing data, lists, or settings are ever
 transmitted.

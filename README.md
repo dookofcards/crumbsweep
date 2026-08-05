@@ -66,9 +66,9 @@ here, you can verify all of this yourself.
 The one exception, and only if you choose it: buying Pro is handled by
 ExtensionPay. That is the only situation in which CrumbSweep contacts a
 server, it happens only after you click Upgrade, and it never sends your
-lists, settings, or anything about your browsing. Until then the payment
-library is not even loaded. The activity log and undo buffer are local —
-undo holds cookie values in memory only, never on disk.
+lists, settings, or anything about your browsing. Until you click it, no
+request is made at all. The activity log and undo buffer are local — undo
+holds cookie values in memory only, never on disk.
 
 ## Building from source
 

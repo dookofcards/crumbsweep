@@ -535,11 +535,51 @@ test("no payment code ships while payment is unconfigured", async ({ page }) => 
   );
 });
 
-test("ExtPay is not loaded into the service worker for a free user", async ({
+test("the payment library loads iff payment is configured", async ({
+  page,
   worker,
 }) => {
+  // MV3 only permits importScripts() during the worker's initial evaluation,
+  // so this has to happen at startup. An earlier version loaded it lazily on
+  // click, which silently failed with ERR_FAILED and made Upgrade a no-op.
+  const configured = await page.evaluate(
+    () => chrome.runtime.getManifest().content_scripts !== undefined,
+  );
   const loaded = await worker.evaluate(() => typeof self.ExtPay !== "undefined");
-  assert(!loaded, "payment library was loaded without the user asking");
+  assert(
+    loaded === configured,
+    loaded
+      ? "payment library loaded in a build with no payment flow"
+      : "payment library failed to load — Upgrade would silently do nothing",
+  );
+});
+
+test("beginUpgrade actually opens a checkout when configured", async ({
+  page,
+  context,
+}) => {
+  const configured = await page.evaluate(
+    () => chrome.runtime.getManifest().content_scripts !== undefined,
+  );
+  const response = await page.evaluate(() =>
+    chrome.runtime.sendMessage({ type: "beginUpgrade" }),
+  );
+  if (!configured) {
+    assert(response.started === false, "unconfigured build reported a start");
+    return;
+  }
+  assert(response.started === true, "Upgrade reported failure");
+  // Confirm a real checkout tab appeared, not just a truthy return value.
+  await page.waitForTimeout(4000);
+  const checkout = context
+    .pages()
+    .find((p) => p.url().includes("extensionpay.com"));
+  assert(checkout !== undefined, "no checkout page opened");
+  assert(
+    checkout.url().includes("/choose-plan"),
+    `unexpected checkout url: ${checkout.url()}`,
+  );
+  await checkout.close();
 });
 
 test("a free user's session makes no external network requests", async ({

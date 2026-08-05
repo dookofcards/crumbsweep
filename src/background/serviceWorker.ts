@@ -1,6 +1,23 @@
 // The service worker can be killed at any time, so no state may survive in
 // module scope between events: every handler re-reads from chrome.storage,
 // and mutations are serialized to avoid interleaved read-modify-write.
+//
+// The ExtPay import below must stay at top level: MV3 only allows
+// importScripts() during the worker's initial evaluation, and a later call
+// fails with ERR_FAILED. Loading it is inert — nothing runs and no request
+// is made until the user actually clicks Upgrade.
+import { paymentConfigured } from "../shared/constants.ts";
+
+declare function importScripts(...urls: string[]): void;
+
+if (paymentConfigured()) {
+  try {
+    importScripts("extpay/ExtPay.js");
+  } catch {
+    // Payment simply stays unavailable; sweeping must not be affected.
+  }
+}
+
 import * as tracker from "../core/tabTracker.ts";
 import * as queue from "../core/cleanupQueue.ts";
 import { cleanAllCookiesExcept, cleanDomainFull } from "../core/cleaner.ts";

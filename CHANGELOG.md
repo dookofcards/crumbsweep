@@ -12,8 +12,9 @@ offering one.
 - Privacy wording updated everywhere in the same release: the free version
   still makes no network requests of any kind, and the payment exception is
   stated plainly rather than the old claim being quietly softened.
-- The payment library loads only after you click Upgrade. Never clicking it
-  means no network request is ever made — verified by an automated test.
+- The payment library is never *called* until you click Upgrade. Never
+  clicking it means no network request is ever made — verified by an
+  automated test.
 
 ## 0.4.0 — 2026-08-04
 
