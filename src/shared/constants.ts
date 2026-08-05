@@ -17,7 +17,10 @@ export const STORE_REVIEW_URL = `${STORE_URL}/reviews`;
  * payment is not configured: no upgrade UI is shown, no payment code loads,
  * and the extension makes no network requests at all.
  */
-export const EXTENSIONPAY_ID = "";
+// Typed as string, not inferred as a literal: paymentConfigured() compares it
+// against "", which TypeScript rejects as impossible once a real slug narrows
+// the type.
+export const EXTENSIONPAY_ID: string = "crumbsweep";
 
 export const paymentConfigured = (): boolean => EXTENSIONPAY_ID !== "";
 

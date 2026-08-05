@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.0 — 2026-08-04
+
+Turns on the Pro purchase flow. **Do not upload this build until the Stripe
+account behind ExtensionPay is connected** — until then the checkout page
+cannot take money, and offering a purchase that fails is worse than not
+offering one.
+
+- CrumbSweep Pro can now be unlocked from the options page. One-time
+  payment, handled by ExtensionPay.
+- Privacy wording updated everywhere in the same release: the free version
+  still makes no network requests of any kind, and the payment exception is
+  stated plainly rather than the old claim being quietly softened.
+- The payment library loads only after you click Upgrade. Never clicking it
+  means no network request is ever made — verified by an automated test.
+
 ## 0.4.0 — 2026-08-04
 
 Introduces CrumbSweep Pro. **Nothing that was free became paid**, and it

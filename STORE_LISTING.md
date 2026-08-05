@@ -50,14 +50,33 @@ FEATURES
 • Pinned tabs are never cleaned while pinned
 • Conservative defaults: cookies only, sensible grace period, no surprises
 
+SEE WHAT IT SWEPT
+• Activity log: what was cleaned, when, and which cookies came from a
+  different site than the one you were on
+• Undo a sweep: closed a tab and lost a session you wanted? Put the cookies
+  back with one click
+
+CRUMBSWEEP PRO (optional, one-time)
+Everything above is free and always will be. Pro adds precision:
+• Stay logged in — keep a site's login cookie while sweeping its trackers,
+  instead of whitelisting the whole site and keeping both
+• Keep specific cookies — pick exactly which of a site's cookies survive
+• Restore older sweeps (undoing the most recent one stays free)
+• Scheduled deep clean — daily or weekly
+
 PRIVACY: ZERO DATA COLLECTION
-CrumbSweep collects nothing. No analytics, no tracking, no accounts, no
-network requests — ever. Everything runs and stays on your device (your
-settings sync only through your own Chrome profile). The code needs access
-to all sites ("Read and change all your data on all websites") for one
-reason only: Chrome's cookie API requires host access to delete a site's
-cookies. That access is used exclusively to delete data, never to read or
-send it anywhere.
+CrumbSweep collects nothing. No analytics, no tracking, no accounts. The
+free version makes no network requests of any kind. Everything runs and
+stays on your device (your settings sync only through your own Chrome
+profile). The code needs access to all sites ("Read and change all your data
+on all websites") for one reason only: Chrome's cookie API requires host
+access to delete a site's cookies. That access is used exclusively to delete
+data, never to read or send it anywhere.
+
+If you choose to buy Pro, payment is handled by ExtensionPay. That is the
+only situation in which CrumbSweep contacts a server, it happens only after
+you click Upgrade, and it never sends your lists, settings, or anything
+about your browsing.
 
 Auto delete cookies. Keep the logins you choose. Sweep the rest.
 
@@ -76,7 +95,9 @@ chrome.cookies.getAll() enumerates the cookies of the site being cleaned (or
 shown in the popup), and chrome.cookies.remove() deletes them, across all
 cookie stores, including partitioned (CHIPS) cookies. Cookie data is
 enumerated only to be deleted — never read for any other purpose, stored, or
-transmitted. The extension makes no network requests of any kind.
+transmitted. Cookie data is never sent anywhere; the extension's only
+network access is the optional payment flow described below, which sends no
+cookie or browsing data at all.
 
 ### tabs
 
@@ -132,10 +153,22 @@ may close a tab for any website, cleaning requires <all_urls>. Narrower
 alternatives cannot work: activeTab is unusable because cleaning happens
 after the tab is closed (no active tab exists), and a fixed host list is
 impossible because the sites a user will visit cannot be known in advance.
-The extension injects no content scripts, reads no page content, uses no
-webRequest listeners, and makes zero network requests; host access is used
-exclusively to delete cookies and, opt-in, related site data. Full source
+Host access is used exclusively to delete cookies and, opt-in, related site
+data. The extension reads no page content and uses no webRequest listeners.
+Its only content script matches https://extensionpay.com/* and exists solely
+to receive the payment-completed callback for the optional one-time Pro
+purchase; it runs on no other site and touches no user content. Full source
 code is public: https://github.com/dookofcards/crumbsweep
+
+### Remote code / network use (for the review form)
+
+No remote code. All code is bundled in the package. The optional Pro
+purchase is handled by the ExtensionPay library, which ships inside the
+package as extpay/ExtPay.js and is loaded only after the user clicks
+"Unlock CrumbSweep Pro". A user who never clicks it makes no network
+requests at all, which can be confirmed in the service worker's DevTools
+Network panel. No cookie data, browsing data, lists, or settings are ever
+transmitted.
 
 ## Privacy policy URL
 
@@ -166,9 +199,18 @@ No account, login, or configuration is required. To verify the core function:
    the popup shows a green "Protected" badge.
 6. The grace period, greylist, opt-in data types, and list import/export
    are on the options page.
+7. The options page also shows an Activity log of what was swept. It records
+   cookie names only, never values, and is stored locally.
 
-All processing is local. The extension makes no network requests, which can
-be confirmed in the service worker's DevTools Network panel. Source code:
+Paid features (optional): the Pro section of the options page is inactive
+unless the user makes a one-time purchase. To review those features without
+paying, run this in the extension's service worker console and reload:
+
+    chrome.storage.local.set({ proEntitlement: { active: true, checkedAt: Date.now() } })
+
+All processing is local. Unless the user clicks "Unlock CrumbSweep Pro", the
+extension makes no network requests at all, which can be confirmed in the
+service worker's DevTools Network panel. Source code:
 https://github.com/dookofcards/crumbsweep
 
 ## If the reviewer asks follow-up questions
