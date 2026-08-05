@@ -70,13 +70,20 @@ function loadClient(): ExtPayClient | undefined {
 }
 
 /**
- * Wires payment callbacks — but only for a user who has already started a
- * purchase. Everyone else keeps a service worker that cannot reach the
- * network at all.
+ * Registers the payment-completed listener. Must be called synchronously
+ * during the worker's initial evaluation: paying takes minutes, so the
+ * worker has almost always been killed by the time extensionpay.com reports
+ * success, and a listener added later misses the message that woke it.
+ *
+ * Deliberately not gated on hasInitiatedPurchase(). That check is async, so
+ * gating on it would push registration past the first turn of the event loop
+ * and reintroduce the same race. It costs nothing: registering a listener
+ * opens no connection, and the message it waits for can only come from a
+ * content script on extensionpay.com, which a user who never clicks Upgrade
+ * never visits. The zero-network e2e test guards this.
  */
-export async function startPaymentBackground(): Promise<void> {
+export function registerPaymentListeners(): void {
   if (!paymentConfigured()) return;
-  if (!(await hasInitiatedPurchase())) return;
   const extpay = loadClient();
   if (extpay === undefined) return;
   extpay.startBackground();
@@ -88,13 +95,10 @@ export async function startPaymentBackground(): Promise<void> {
 /** The one place a network connection is opened, from an explicit click. */
 export async function beginUpgrade(): Promise<boolean> {
   if (!paymentConfigured()) return false;
-  await markPurchaseInitiated();
   const extpay = loadClient();
   if (extpay === undefined) return false;
-  extpay.startBackground();
-  extpay.onPaid.addListener((user) => {
-    void setEntitlement(user.paid === true);
-  });
+  await markPurchaseInitiated();
+  // Listeners are already registered at startup; this only opens checkout.
   await extpay.openPaymentPage();
   return true;
 }

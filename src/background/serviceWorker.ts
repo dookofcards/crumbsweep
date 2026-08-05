@@ -17,6 +17,7 @@ if (paymentConfigured()) {
     // Payment simply stays unavailable; sweeping must not be affected.
   }
 }
+// Registered below, synchronously, alongside the other top-level listeners.
 
 import * as tracker from "../core/tabTracker.ts";
 import * as queue from "../core/cleanupQueue.ts";
@@ -28,8 +29,8 @@ import { getSettings } from "../shared/settings.ts";
 import { getPauseState, setPauseUntil } from "../shared/pause.ts";
 import {
   beginUpgrade,
+  registerPaymentListeners,
   revalidateEntitlement,
-  startPaymentBackground,
 } from "./payment.ts";
 import { armSchedule, DEEP_CLEAN_ALARM, runIfDue } from "../core/schedule.ts";
 import { restoreSweep } from "../core/undo.ts";
@@ -214,6 +215,10 @@ chrome.runtime.onMessage.addListener(
   },
 );
 
+// Synchronous, in the worker's first turn: the payment-completed message may
+// be the very thing waking the worker up.
+registerPaymentListeners();
+
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") {
     void chrome.tabs.create({
@@ -252,8 +257,7 @@ serialized(() => tracker.rebuild(trackerEvents))
     const unlocked = await hasFeature("scheduledDeepCleans");
     await armSchedule(unlocked ? settings.deepCleanSchedule : "off");
     await processSchedule();
-    // Both are no-ops until the user has started a purchase, so a free user's
-    // service worker still opens no connections.
-    await startPaymentBackground();
+    // No-op until the user has started a purchase, so a free user's service
+    // worker still opens no connections.
     await revalidateEntitlement();
   });
