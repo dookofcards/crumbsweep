@@ -73,7 +73,10 @@ main {
 
 .pill.white { background: var(--ok); }
 .pill.grey { background: var(--grey-trust); }
-.pill.none { background: color-mix(in srgb, currentColor 45%, transparent); }
+/* Not currentColor: .pill sets color:#fff, so deriving the background from it
+   produced a white pill with white text — invisible in light mode, and this
+   is the pill shown for any site not on a list, i.e. most of them. */
+.pill.none { background: #6b7280; }
 
 .actions {
   display: flex;

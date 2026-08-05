@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1 — 2026-08-04
+
+- Fixed the popup's "Will be cleaned" badge being invisible in light mode.
+  It was drawn white-on-white, and it is the badge shown for any site that
+  is not on a list — so, most sites.
+
 ## 0.5.0 — 2026-08-04
 
 Turns on the Pro purchase flow. **Do not upload this build until the Stripe
