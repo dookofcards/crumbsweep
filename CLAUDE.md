@@ -127,6 +127,29 @@ the page title says "test mode" and the Stripe URL contains `cs_test_`.
 - Needs repo secret `CLAUDE_CODE_OAUTH_TOKEN` and the Claude GitHub App
   installed on the repo.
 
+## Claude usage limits in CI (store-fix here; factory uses the same files)
+
+- **Layer 1, waiting in place:** the Claude step runs with
+  `settings: {"autoContinueAtUsageLimit": true}` and a 300-minute step
+  timeout. A limit that resets in time is waited out inside the same
+  session, so the run truly continues.
+- **Layer 2, checkpoint and resume:** if the step still fails,
+  `tools/usage-limit.mjs handle` looks only at the end of the run (the final
+  result message, never tool output, which can mention "rate limit"). If it
+  was a usage limit:
+  - it commits the working tree to `resume/<workflow>-<first run id>`;
+  - it writes a marker under `pending/` on branch `automation/resume`;
+  - it enables `resume.yml`.
+  `resume.yml` is normally **disabled**. Every 30 minutes it re-dispatches
+  due runs (`resume_checkpoint`, `attempt`, `origin_run` inputs) and
+  disables itself when nothing is pending.
+- **Cap:** 3 resumes per original run. After that it comments on the issue
+  (or opens one) and stops.
+- **Limit:** a resumed run continues from the saved files and git history
+  with a **new** Claude session, not the old conversation. Session
+  transcripts aren't carried over, because this repo's artifacts are public.
+- `tools/usage-limit.mjs` is guard-protected: a Claude fix can't change it.
+
 ## Status, numbers and the factory
 
 - `/catchup` (a user-level command, see `~/.claude/CLAUDE.md`) reports
