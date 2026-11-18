@@ -105,6 +105,28 @@ the page title says "test mode" and the Stripe URL contains `cs_test_`.
    fix it under the same loop. If the fix would change the extension's
    purpose, permissions, or privacy claims, ask first.
 
+## Review watcher and rejection fixes
+
+- `.github/workflows/review-watch.yml` runs daily at 13:23 UTC.
+  - It reads the store status (`tools/cws.mjs status --out`) and commits
+    `release/store-status.json` only when the status changed.
+  - It opens one `store-review` issue (assigned to the owner) when an update
+    is rejected, warned or taken down, and closes it once a newer version is
+    live.
+  - A keepalive call stops GitHub from disabling the schedule after 60 quiet
+    days.
+- **The store API never returns the rejection reason.** It's only in
+  Google's email and the dashboard, so the issue asks the owner to paste it.
+  That owner comment starts `.github/workflows/store-fix.yml`:
+  - **fix** job: Claude Code headless, with no store or payment secrets,
+    writes the fix on `fix/store-review-<n>` and runs the tests.
+  - **guard** job: `tools/fix-guard.mjs`, plain code. It releases the fix
+    (fast-forwards main, tags, dispatches `release.yml`, which runs the full
+    gate) unless the diff touches purpose, permissions, privacy, CI or the
+    release tooling. In that case it opens a PR for the owner instead.
+- Needs repo secret `CLAUDE_CODE_OAUTH_TOKEN` and the Claude GitHub App
+  installed on the repo.
+
 ## Release pipeline
 
 Stages 1, 2 and 5 are built. Stage 3 is planned. Stage 4 was dropped.

@@ -1,7 +1,7 @@
 // Chrome Web Store API V2 client — no dependencies, so it can be copied into
 // any of the maintainer's extensions unchanged.
 //
-//   node tools/cws.mjs status
+//   node tools/cws.mjs status [--out status.json]
 //   node tools/cws.mjs release --zip <file> --results <e2e-results.json> [--dry-run]
 //
 // Env:
@@ -13,7 +13,7 @@
 // --dry-run authenticates, reads the live status, and runs every check that
 // precedes an upload, then stops. It never uploads or publishes.
 import { createSign } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { inflateRawSync } from "node:zlib";
 
 const API = "https://chromewebstore.googleapis.com";
@@ -156,7 +156,20 @@ async function main() {
   const info = describe(status);
   console.log("store status:", info);
 
-  if (command === "status") return;
+  if (command === "status") {
+    const out = option("--out");
+    if (out) {
+      const rev = (r) => (r ? { version: versionOf(r) ?? null, state: r.state } : null);
+      await writeFile(out, `${JSON.stringify({
+        itemId: status.itemId ?? env("CWS_EXTENSION_ID"),
+        published: rev(status.publishedItemRevisionStatus),
+        submitted: rev(status.submittedItemRevisionStatus),
+        takenDown: status.takenDown === true,
+        warned: status.warned === true,
+      }, null, 2)}\n`);
+    }
+    return;
+  }
   if (command !== "release") fail(`unknown command "${command}"`);
 
   const zipPath = option("--zip") ?? fail("--zip <file> is required");
