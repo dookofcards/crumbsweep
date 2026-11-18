@@ -127,6 +127,22 @@ the page title says "test mode" and the Stripe URL contains `cs_test_`.
 - Needs repo secret `CLAUDE_CODE_OAUTH_TOKEN` and the Claude GitHub App
   installed on the repo.
 
+## Status, numbers and the factory
+
+- `/catchup` (a user-level command, see `~/.claude/CLAUDE.md`) reports
+  store status, users, ratings and reviews, GitHub activity and factory
+  ideas since the last check.
+- The store API (V2) gives these with the shared service-account key:
+  `:queryMetrics` (`users`, `users-7d`, `installs`, `uninstalls`),
+  `/ratingSummary` and `:fetchReviews` (`orderBy=create_time desc`). The
+  `installs` metric is the **installed base on that day**, not new
+  installs, so never sum it. Sales numbers aren't reachable: ExtensionPay
+  has no API, and Stripe would need a secret key.
+- New extensions come from the private `dookofcards/extension-factory`. Its
+  `CLAUDE.md` holds the research, scoring and build rules, and
+  `registry.json` lists the published extensions. CrumbSweep is the
+  reference implementation the factory copies.
+
 ## Release pipeline
 
 Stages 1, 2 and 5 are built. Stage 3 is planned. Stage 4 was dropped.
