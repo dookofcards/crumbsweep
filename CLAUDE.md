@@ -205,9 +205,11 @@ To fix or decide:
   were never uploaded, so the first automated release ships Pro and the
   payment flow together. `CHANGELOG` 0.5.0 says not to upload 0.5.x until
   Stripe is connected in ExtensionPay. Only the maintainer can confirm that.
-- The listing's "Offered by" line shows "ExtensionTools", not
-  `dookofcards`. That's the publisher display name in the dashboard; check
-  that it's intended.
+- "Extension Tools" is the maintainer's intended business name. It's the
+  store's "Offered by" line and the live Stripe public business name and
+  statement descriptor. The Stripe **Sandbox** shows a different name that
+  can't be changed. Only tests see it, so it's not a release blocker, but it
+  must still never appear in logs (hard rule 2).
 - The privacy form in `STORE_LISTING.md` says "check nothing". That predates
   the payment flow. Payment details and email go to ExtensionPay/Stripe on
   their site, not through the extension. Re-read the form wording before the
