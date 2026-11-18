@@ -18,7 +18,10 @@ Site + privacy policy: GitHub Pages from `main` → `/docs`.
    the ExtensionPay plans or price. Those need the maintainer.
 2. **Use the public handle `dookofcards` only.** Never write the maintainer's
    real name, personal email, or the Windows account name into code, commits,
-   listing copy, or the site.
+   listing copy, or the site. **CI logs and artifacts are public too.** Stripe
+   and ExtensionPay pages display the account's legal name, so tests must
+   never log their page text or upload screenshots of them. Log form
+   structure only (see `dumpPage` in `tools/e2e.mjs`).
 3. **Never commit `planning/`, `brief.md`, `.env*`, or `*.zip`.** `planning/`
    holds pricing and strategy and is gitignored on purpose.
 4. **Privacy claim:** "the free version makes no network requests of any kind."
