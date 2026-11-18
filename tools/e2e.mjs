@@ -7,7 +7,7 @@
 // Tests run inside the options page, which shares the extension origin and
 // service worker with the real thing, so chrome.* behaves exactly as shipped.
 import { chromium } from "playwright";
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
 
@@ -596,6 +596,51 @@ test("beginUpgrade actually opens a checkout when configured", async ({
   await checkout.close();
 }, { liveExtPay: true });
 
+/** Visible-or-not within a short wait, without failing the test. */
+const shows = (locator, timeout = 3000) =>
+  locator.first().waitFor({ state: "visible", timeout }).then(() => true, () => false);
+
+/**
+ * Fills Stripe's hosted Checkout with the 4242 test card. Optional fields
+ * (email, payment-method accordion, postal code) depend on account settings
+ * and the runner's country, so each is filled only if Stripe shows it.
+ */
+async function fillStripeCheckout(p) {
+  await p.waitForLoadState("networkidle").catch(() => {});
+  const email = p.locator('#email, input[name="email"], input[type="email"]');
+  if (await shows(email, 10_000)) await email.first().fill(`e2e+${Date.now()}@example.com`);
+  const cardMethod = p.locator('[data-testid="card-accordion-item-button"]');
+  if (await shows(cardMethod)) await cardMethod.first().click();
+  await p.locator('#cardNumber, input[name="cardNumber"]').first().fill("4242424242424242");
+  await p.locator('#cardExpiry, input[name="cardExpiry"]').first().fill("12 / 34");
+  await p.locator('#cardCvc, input[name="cardCvc"]').first().fill("123");
+  const name = p.locator('#billingName, input[name="billingName"]');
+  if (await shows(name)) await name.first().fill("E2E Test");
+  const postal = p.locator('#billingPostalCode, input[name="billingPostalCode"]');
+  if (await shows(postal)) await postal.first().fill("10001");
+  await p.locator('button[type="submit"]').first().click();
+}
+
+/** On failure: log the page's form structure and save a screenshot. */
+async function dumpPage(p, label) {
+  try {
+    const info = await p.evaluate(() => ({
+      url: location.origin + location.pathname,
+      inputs: [...document.querySelectorAll("input,select,button,iframe")].map((e) =>
+        [e.tagName, e.id, e.name, e.type, e.getAttribute("autocomplete"),
+          e.getAttribute("aria-label"), e.getAttribute("data-testid"),
+          e.tagName === "IFRAME" ? e.src.slice(0, 80) : (e.innerText || "").slice(0, 40),
+          e.offsetParent !== null ? "visible" : "hidden"].filter(Boolean).join(" | ")),
+      text: document.body.innerText.slice(0, 1200),
+    }));
+    console.log(`\n--- ${label} page dump ---\n${JSON.stringify(info, null, 2)}\n---`);
+    await mkdir("e2e-debug", { recursive: true });
+    await p.screenshot({ path: `e2e-debug/${label}.png`, fullPage: true });
+  } catch (e) {
+    console.log(`(page dump failed: ${e.message})`);
+  }
+}
+
 // The whole paid path as a customer walks it: Upgrade → ExtensionPay →
 // Stripe Checkout → back → Pro actually changes what gets swept. Test mode
 // only: it refuses to type a card anywhere that isn't a Stripe *test* session.
@@ -637,16 +682,12 @@ test("a test-mode purchase unlocks pro end to end", async ({ page, context }) =>
     `not a Stripe test session (${new URL(checkout.url()).pathname}); refusing to enter a card`,
   );
 
-  await checkout.locator("#email").fill(`e2e+${Date.now()}@example.com`);
-  const cardMethod = checkout.locator('[data-testid="card-accordion-item-button"]');
-  if (await cardMethod.isVisible().catch(() => false)) await cardMethod.click();
-  await checkout.locator("#cardNumber").fill("4242424242424242"); // Stripe test Visa
-  await checkout.locator("#cardExpiry").fill("12 / 34");
-  await checkout.locator("#cardCvc").fill("123");
-  await checkout.locator("#billingName").fill("E2E Test");
-  const postal = checkout.locator("#billingPostalCode");
-  if (await postal.isVisible().catch(() => false)) await postal.fill("10001");
-  await checkout.locator('button[type="submit"]').first().click();
+  try {
+    await fillStripeCheckout(checkout);
+  } catch (error) {
+    await dumpPage(checkout, "stripe-checkout");
+    throw error;
+  }
 
   // onPaid arrives via the content script on extensionpay.com's success page.
   const deadline = Date.now() + 90_000;

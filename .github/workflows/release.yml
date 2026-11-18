@@ -59,6 +59,12 @@ jobs:
           E2E_RESULTS: e2e-results.json
         run: xvfb-run --auto-servernum node tools/e2e.mjs
       - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-debug
+          path: e2e-debug/
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
         with:
           name: tested-build
           path: |

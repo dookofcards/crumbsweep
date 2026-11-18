@@ -13,3 +13,5 @@ planning/
 .env
 .env.*
 JSON/
+e2e-debug/
+e2e-results.json
