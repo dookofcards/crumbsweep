@@ -10,3 +10,6 @@ brief.md
 .shot.mjs
 .spike*.mjs
 planning/
+.env
+.env.*
+JSON/

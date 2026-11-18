@@ -4,7 +4,7 @@
 // high-resolution artwork rather than exact dimensions.
 // Run: node tools/capture-tiles.mjs
 import { chromium } from "playwright";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 const TILES = [
@@ -26,8 +26,26 @@ try {
     });
     await page.goto(`file:///${path.resolve(file).replace(/\\/g, "/")}`);
     await page.waitForTimeout(200);
-    await page.locator(sel).screenshot({ path: out });
+    // locator.screenshot() rounds a fractional top offset outward, which made
+    // 440x280 come out as 440x281 — and the store rejects anything inexact.
+    // Clip to the element's integer layout size at a rounded origin instead.
+    const clip = await page.locator(sel).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return {
+        x: Math.round(r.left + window.scrollX),
+        y: Math.round(r.top + window.scrollY),
+        width: el.offsetWidth,
+        height: el.offsetHeight,
+      };
+    });
+    await page.screenshot({ path: out, clip, fullPage: true });
     await page.close();
+    const png = await readFile(out);
+    const size = [png.readUInt32BE(16), png.readUInt32BE(20)];
+    const want = [clip.width * scale, clip.height * scale];
+    if (size[0] !== want[0] || size[1] !== want[1]) {
+      throw new Error(`${out} is ${size.join("x")}, expected ${want.join("x")}`);
+    }
     console.log(`wrote ${out}${scale > 1 ? ` (${scale}x)` : ""}`);
   }
 } finally {
