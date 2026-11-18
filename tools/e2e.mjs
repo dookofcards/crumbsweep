@@ -7,7 +7,7 @@
 // Tests run inside the options page, which shares the extension origin and
 // service worker with the real thing, so chrome.* behaves exactly as shipped.
 import { chromium } from "playwright";
-import { readFile, rm } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
 
@@ -17,12 +17,20 @@ const profile = path.join(root, ".e2e-profile");
 
 const tests = [];
 /**
- * opts.skipInCi marks tests that talk to ExtensionPay's live API. Running
- * those on every push would mint a throwaway user record per build and make
- * the pipeline fail whenever a third party has a bad day.
+ * opts.liveExtPay marks tests that talk to ExtensionPay's live API (in test
+ * mode — an unpacked install always gets a test-mode key). Plain CI skips
+ * them: running them on every push would mint a throwaway user record per
+ * build and fail whenever a third party has a bad day. The release workflow
+ * sets RUN_PAYMENT_E2E=1, which runs them and turns "can't run" into a
+ * failure, so a release can never ship on a silently skipped payment test.
  */
 export const test = (name, fn, opts = {}) => tests.push({ name, fn, ...opts });
 const inCi = process.env.CI !== undefined && process.env.CI !== "";
+const requirePayment = process.env.RUN_PAYMENT_E2E === "1";
+const runLive = !inCi || requirePayment;
+
+/** Thrown by a test that cannot run here; counted as skipped, not passed. */
+class Skip extends Error {}
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -586,7 +594,86 @@ test("beginUpgrade actually opens a checkout when configured", async ({
     `unexpected checkout url: ${checkout.url()}`,
   );
   await checkout.close();
-}, { skipInCi: true });
+}, { liveExtPay: true });
+
+// The whole paid path as a customer walks it: Upgrade → ExtensionPay →
+// Stripe Checkout → back → Pro actually changes what gets swept. Test mode
+// only: it refuses to type a card anywhere that isn't a Stripe *test* session.
+test("a test-mode purchase unlocks pro end to end", async ({ page, context }) => {
+  const configured = await page.evaluate(
+    () => chrome.runtime.getManifest().content_scripts !== undefined,
+  );
+  const password = process.env.EXTPAY_DEV_PASSWORD;
+  if (!configured || !password) {
+    const why = !configured ? "payment is not configured" : "EXTPAY_DEV_PASSWORD is not set";
+    if (requirePayment) throw new Error(`${why}; the release gate requires a real test-mode purchase`);
+    throw new Skip(why);
+  }
+
+  const proActive = () =>
+    page.evaluate(async () =>
+      (await chrome.storage.local.get("proEntitlement")).proEntitlement?.active === true);
+  assert(!(await proActive()), "already pro before paying");
+
+  const opened = context.waitForEvent("page", {
+    predicate: (p) => p.url().includes("extensionpay.com"),
+    timeout: 20_000,
+  });
+  await page.evaluate(() => chrome.runtime.sendMessage({ type: "beginUpgrade" }));
+  const checkout = await opened;
+  await checkout.waitForLoadState("networkidle");
+  assert(
+    (await checkout.title()).includes("test mode"),
+    "ExtensionPay is not in test mode; refusing to continue",
+  );
+
+  // First (and for CrumbSweep, only) priced plan, e.g. "$9 Lifetime".
+  await checkout.locator("button").filter({ hasText: /\$\d/ }).first().click();
+  await checkout.locator('input[name="password"]').fill(password);
+  await checkout.getByRole("button", { name: /test payment page/i }).click();
+  await checkout.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 });
+  assert(
+    checkout.url().includes("cs_test_"),
+    `not a Stripe test session (${new URL(checkout.url()).pathname}); refusing to enter a card`,
+  );
+
+  await checkout.locator("#email").fill(`e2e+${Date.now()}@example.com`);
+  const cardMethod = checkout.locator('[data-testid="card-accordion-item-button"]');
+  if (await cardMethod.isVisible().catch(() => false)) await cardMethod.click();
+  await checkout.locator("#cardNumber").fill("4242424242424242"); // Stripe test Visa
+  await checkout.locator("#cardExpiry").fill("12 / 34");
+  await checkout.locator("#cardCvc").fill("123");
+  await checkout.locator("#billingName").fill("E2E Test");
+  const postal = checkout.locator("#billingPostalCode");
+  if (await postal.isVisible().catch(() => false)) await postal.fill("10001");
+  await checkout.locator('button[type="submit"]').first().click();
+
+  // onPaid arrives via the content script on extensionpay.com's success page.
+  const deadline = Date.now() + 90_000;
+  while (!(await proActive())) {
+    if (Date.now() > deadline) {
+      throw new Error(`paid, but Pro never unlocked (checkout ended at ${checkout.url()})`);
+    }
+    await page.waitForTimeout(2000);
+  }
+  await checkout.close().catch(() => {});
+
+  // Entitlement alone isn't the point: a Pro feature must now behave as Pro.
+  const left = await page.evaluate(async () => {
+    await chrome.storage.sync.set({
+      "cookierules.0": [{ domain: "e2e-paid.com", keep: ["keepme"] }],
+    });
+    for (const name of ["keepme", "_ga"]) {
+      await chrome.cookies.set({ url: "https://e2e-paid.com/", name, value: "1" });
+    }
+    await chrome.runtime.sendMessage({ type: "cleanDomainNow", domain: "e2e-paid.com" });
+    return (await chrome.cookies.getAll({ domain: "e2e-paid.com" })).map((c) => c.name);
+  });
+  assert(
+    JSON.stringify(left) === JSON.stringify(["keepme"]),
+    `after purchase, keep rule gave survivors ${JSON.stringify(left)}`,
+  );
+}, { liveExtPay: true });
 
 test("a free user's session makes no external network requests", async ({
   page,
@@ -669,8 +756,8 @@ export async function run() {
     await page.goto(`chrome-extension://${extId}/options/options.html`);
 
     const ctx = { page, context, extId, worker, pkgVersion };
-    for (const { name, fn, skipInCi } of tests) {
-      if (skipInCi && inCi) {
+    for (const { name, fn, liveExtPay } of tests) {
+      if (liveExtPay && !runLive) {
         skipped.push(name);
         console.log(`  SKIP  ${name} (hits ExtensionPay's live API)`);
         continue;
@@ -685,6 +772,11 @@ export async function run() {
         await fn(ctx);
         console.log(`  PASS  ${name}`);
       } catch (error) {
+        if (error instanceof Skip) {
+          skipped.push(name);
+          console.log(`  SKIP  ${name} (${error.message})`);
+          continue;
+        }
         failures.push({ name, error });
         console.log(`  FAIL  ${name}\n        ${error.message}`);
       }
@@ -701,8 +793,19 @@ export async function run() {
   const ran = tests.length - skipped.length;
   console.log(
     `\n${ran - failures.length}/${ran} e2e tests passed` +
-      (skipped.length ? ` (${skipped.length} skipped in CI)` : ""),
+      (skipped.length ? ` (${skipped.length} skipped)` : ""),
   );
+  // The release job refuses to publish unless this file says this exact
+  // version ran every test, skipped none, and failed none.
+  if (process.env.E2E_RESULTS) {
+    await writeFile(process.env.E2E_RESULTS, `${JSON.stringify({
+      version: pkgVersion,
+      total: tests.length,
+      passed: ran - failures.length,
+      failed: failures.map((f) => f.name),
+      skipped,
+    }, null, 2)}\n`);
+  }
   if (failures.length) process.exitCode = 1;
 }
 

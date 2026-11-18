@@ -10,12 +10,12 @@ Site + privacy policy: GitHub Pages from `main` → `/docs`.
 
 ## Hard rules
 
-1. **Nothing that publishes or moves money runs without the maintainer saying
-   "go" in the current conversation.** That covers: Chrome Web Store upload /
-   publish, any Stripe call with a live key (`sk_live_`/`rk_live_`), creating
-   GitHub releases or tags, pushing to `main` (Pages deploys from it), and the
-   local e2e checkout test (it creates a real user record on ExtensionPay).
-   Dry runs and Stripe **test-mode** calls are fine.
+1. **Releases are autonomous, money is not.** Follow "Release standard"
+   below without asking: commit, push to `main`, tag, and release once the
+   gate passes. Never, under any circumstances: enter a real card or pay in
+   live mode, use a Stripe live key, force-push, delete or overwrite a
+   published tag or release, roll back or unpublish a store item, or change
+   the ExtensionPay plans or price. Those need the maintainer.
 2. **Use the public handle `dookofcards` only.** Never write the maintainer's
    real name, personal email, or the Windows account name into code, commits,
    listing copy, or the site.
@@ -41,7 +41,9 @@ npm run typecheck
 npm test            # vitest, 103 unit tests
 npm run build       # → dist/ (load unpacked from here)
 npm run package     # minified build + crumbsweep-v<version>.zip in repo root
-CI=1 node tools/e2e.mjs   # Playwright drives real Chrome. CI=1 skips the live ExtensionPay test
+CI=1 node tools/e2e.mjs   # Playwright drives real Chrome. CI=1 skips the 2 live ExtensionPay tests
+# Release-gate mode: what the release workflow runs, against the minified store build
+npm run package && CI=1 RUN_PAYMENT_E2E=1 EXTPAY_DEV_PASSWORD=… E2E_RESULTS=e2e-results.json node tools/e2e.mjs
 ```
 
 **Windows gotcha:** if vitest reports "failed to find the runner" for every
@@ -53,11 +55,58 @@ Version comes from `package.json` alone; `build.mjs` stamps it into the
 manifest. The extension name and the short description come from
 `src/shared/constants.ts`.
 
-## Release pipeline (target state)
+## Release standard (fully autonomous; set by the maintainer 2026-11-18)
 
-Stages 1 and 2 exist. Stages 3 and 5 are planned and not built yet. Stage 4
-was dropped. Pushing a version tag is the maintainer's go-ahead: after that
-the pipeline runs on its own, with no extra approval click.
+Applies to every one of the maintainer's extensions. Every extension has a
+**Free** tier and a **Pro** tier sold through **ExtensionPay**.
+
+**The gate.** A version may be published only when, for that exact version:
+- typecheck and unit tests pass;
+- every e2e test passes on the minified store build, with **none skipped**.
+  That covers:
+  - **Free:** the core features work, Pro features are locked, and a free
+    session makes zero network requests.
+  - **Pro:** the features behave correctly with an entitlement.
+  - **Pro purchase:** a real end-to-end purchase through ExtensionPay test
+    mode and the Stripe test card `4242 4242 4242 4242`, after which a Pro
+    feature must actually work.
+
+The workflow enforces this. `tools/e2e.mjs` writes `e2e-results.json`, and
+`tools/cws.mjs` refuses to upload unless that file matches the zip's version
+with zero failed and zero skipped. Never add a bypass flag, never mark a test
+skipped to get it through, and never upload by any other path.
+
+Test mode is automatic for unpacked installs: ExtPay gives them a
+`development` key. It needs the ExtensionPay developer password, stored in
+secret `EXTPAY_DEV_PASSWORD`. The purchase test refuses to type a card unless
+the page title says "test mode" and the Stripe URL contains `cs_test_`.
+
+**The loop.** When asked to release (or when a release is due):
+1. Run the gate locally in release-gate mode (see Commands).
+2. **Pass:** decide the version.
+   - If the current `package.json` version is already live or already
+     tagged, bump it: patch for fixes, minor for features.
+   - Add a `## x.y.z — YYYY-MM-DD` entry to CHANGELOG written for users.
+   - Commit, push to `main`, then `git tag vX.Y.Z && git push origin vX.Y.Z`.
+   - Watch the Release workflow until it reports `submitted: PENDING_REVIEW`
+     (or `PUBLISHED`). Then report the result in one short message.
+3. **Fail:** find the root cause, fix it, and run the gate again. Up to
+   **3 fix attempts** per failure. Fix the product, not the test. Change a
+   test only when the test itself is wrong, and say why in the commit
+   message. If it's still failing after 3 attempts, stop and send the
+   maintainer the failing test, the error, and what was tried.
+4. Contact the maintainer only for a step that needs their login
+   (dashboard, ExtensionPay, Google, Stripe), for anything under hard rule 1,
+   or after step 3 gives up.
+5. Store review can reject an update. If it's rejected, read the reason and
+   fix it under the same loop. If the fix would change the extension's
+   purpose, permissions, or privacy claims, ask first.
+
+## Release pipeline
+
+Stages 1, 2 and 5 are built. Stage 3 is planned. Stage 4 was dropped.
+Pushing a version tag starts the release, and the pipeline runs on its own
+after that.
 
 ### 1. Build and test (exists: `.github/workflows/ci.yml`)
 Runs on every push and PR: typecheck → unit → build → e2e under xvfb, with
@@ -100,11 +149,14 @@ promise.
 ### 5. Publish to the Chrome Web Store (planned: `.github/workflows/release.yml`)
 - Triggered by pushing a `v*.*.*` tag, or by `workflow_dispatch` with
   `dry_run: true` as the default.
-- **verify** job: the same checks as CI, plus checks that the tag equals
-  `package.json` version, `CHANGELOG.md` has an entry for that version, and
-  the version is higher than the published one.
-- **package** job: `npm run package`, then attach the zip to a draft GitHub
-  Release (anyone can rebuild it from source and compare).
+- **verify** job: checks the tag equals the `package.json` version and that
+  `CHANGELOG.md` has an entry for it. Then it runs typecheck and unit tests,
+  runs `npm run package`, and runs e2e in release-gate mode against that
+  same `dist/`. It uploads the zip plus `e2e-results.json` as the artifact
+  `tested-build`.
+- **release** job: downloads `tested-build` and never rebuilds, so the bytes
+  that were tested are the bytes uploaded. It runs the gate and uploads, then
+  attaches the same zip to a GitHub Release.
 - **publish** job: runs in `environment: chrome-web-store`, which scopes the
   secrets. It has no required reviewer, because the tag push is the
   approval. Steps:
@@ -123,8 +175,9 @@ promise.
     step before upload runs.
 - Status: **built**. Pushing a `v*.*.*` tag releases. Running the workflow
   by hand from `main` (`gh workflow run release.yml`) is always a dry run.
-- Secrets: `CWS_SERVICE_ACCOUNT_KEY` and `CWS_PUBLISHER_ID`, set
-  2026-11-18 as secrets on the `chrome-web-store` environment. That
+- Secrets: `CWS_SERVICE_ACCOUNT_KEY` and `CWS_PUBLISHER_ID` (set
+  2026-11-18), plus `EXTPAY_DEV_PASSWORD` (set by the maintainer), all
+  secrets on the `chrome-web-store` environment. That
   environment accepts deployments only from branch `main` and tags
   `v*.*.*`. Never echo the secrets, and never put them in the repo.
 - Local check, read-only:

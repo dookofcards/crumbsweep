@@ -2,7 +2,7 @@
 // any of the maintainer's extensions unchanged.
 //
 //   node tools/cws.mjs status
-//   node tools/cws.mjs release --zip <file> [--dry-run]
+//   node tools/cws.mjs release --zip <file> --results <e2e-results.json> [--dry-run]
 //
 // Env:
 //   CWS_SERVICE_ACCOUNT_KEY       service-account JSON (GitHub secret), or
@@ -163,6 +163,19 @@ async function main() {
   const zip = await readFile(zipPath);
   const manifest = manifestFromZip(zip);
   console.log(`package: ${zipPath} → ${manifest.name} ${manifest.version} (${zip.length} bytes)`);
+
+  // Release gate: no upload unless the e2e run for *this* version passed
+  // every test (Free and Pro, including the test-mode purchase) and skipped
+  // none. There is deliberately no flag to bypass this.
+  const resultsPath = option("--results") ?? fail("--results <e2e-results.json> is required");
+  const results = JSON.parse(await readFile(resultsPath, "utf8"));
+  const gate = [];
+  if (results.version !== manifest.version) gate.push(`results are for ${results.version}, package is ${manifest.version}`);
+  if (results.failed?.length) gate.push(`failed: ${results.failed.join("; ")}`);
+  if (results.skipped?.length) gate.push(`skipped: ${results.skipped.join("; ")}`);
+  if (!(results.total > 0) || results.passed !== results.total) gate.push(`passed ${results.passed}/${results.total}`);
+  if (gate.length) fail(`release gate closed:\n  ${gate.join("\n  ")}`);
+  console.log(`release gate open: ${results.passed}/${results.total} e2e tests passed for ${results.version}, none skipped`);
 
   if (info.takenDown) fail("item is taken down; resolve it in the dashboard first");
   const live = versionOf(status.publishedItemRevisionStatus);
