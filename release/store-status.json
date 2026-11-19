@@ -1,14 +1,11 @@
 {
   "itemId": "kohfndmjmmfbmkiagfndfoglpimiaman",
   "published": {
-    "version": "0.1.0",
+    "version": "0.5.1",
     "state": "PUBLISHED"
   },
-  "submitted": {
-    "version": "0.5.1",
-    "state": "PENDING_REVIEW"
-  },
+  "submitted": null,
   "takenDown": false,
   "warned": false,
-  "checkedAt": "2026-11-18T17:12:29.969Z"
+  "checkedAt": "2026-11-19T21:39:41.764Z"
 }
