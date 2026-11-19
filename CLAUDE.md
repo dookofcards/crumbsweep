@@ -240,6 +240,10 @@ write a user-facing CHANGELOG entry.
   `CLAUDE.md` holds the research, scoring and build rules, and
   `registry.json` lists the published extensions. CrumbSweep is the
   reference implementation the factory copies.
+- **Publisher slot limit: 3** (CrumbSweep, TabNap, one free; set
+  2026-11-18). It's `slotLimit` in the factory's `registry.json`. When all
+  slots are taken, the factory only researches and keeps
+  `ideas/BACKLOG.md`. The maintainer says when the limit changes.
 
 ## Release pipeline
 
