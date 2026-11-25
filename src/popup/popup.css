@@ -341,3 +341,20 @@ main {
   display: none !important;
 }
 
+
+.review-card {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  font-size: 12px;
+}
+.review-card p { margin: 0 0 6px; }
+.review-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.review-row button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}

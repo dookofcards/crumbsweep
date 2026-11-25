@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0 — 2026-11-25
+
+- A small, one-time note in the popup now invites you to leave a review —
+  but only after a week of use and 20 sweeps, never on install. Choose
+  "Leave a review", "Not now" (asks once more after 30 days) or "Don't ask
+  again". It offers nothing in return, and it works entirely on your own
+  device: no network requests.
+
 ## 0.5.1 — 2026-08-04
 
 - Fixed the popup's "Will be cleaned" badge being invisible in light mode.

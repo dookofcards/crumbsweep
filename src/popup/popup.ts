@@ -10,7 +10,11 @@ import {
   setListMembership,
   type ListType,
 } from "../core/lists.ts";
-import { EXTENSION_NAME } from "../shared/constants.ts";
+import {
+  answerReviewPrompt,
+  shouldShowReviewPrompt,
+} from "../core/reviewPrompt.ts";
+import { EXTENSION_NAME, STORE_REVIEW_URL } from "../shared/constants.ts";
 import type {
   CleanDomainNowMessage,
   CleanNowResponse,
@@ -53,6 +57,10 @@ const el = {
   pause15: $<HTMLButtonElement>("pause-15"),
   pause60: $<HTMLButtonElement>("pause-60"),
   pauseInf: $<HTMLButtonElement>("pause-inf"),
+  reviewCard: $("review-card"),
+  reviewGo: $<HTMLAnchorElement>("review-go"),
+  reviewLater: $<HTMLButtonElement>("review-later"),
+  reviewNever: $<HTMLButtonElement>("review-never"),
 };
 
 let currentDomain: string | null = null;
@@ -306,6 +314,20 @@ el.pause60.addEventListener("click", () =>
 el.pauseInf.addEventListener("click", () => void setPause("indefinite"));
 el.pauseResume.addEventListener("click", () => void setPause(null));
 
+el.reviewGo.href = STORE_REVIEW_URL;
+el.reviewGo.addEventListener("click", () => {
+  void answerReviewPrompt("review");
+  el.reviewCard.hidden = true;
+});
+el.reviewLater.addEventListener("click", () => {
+  void answerReviewPrompt("later");
+  el.reviewCard.hidden = true;
+});
+el.reviewNever.addEventListener("click", () => {
+  void answerReviewPrompt("never");
+  el.reviewCard.hidden = true;
+});
+
 async function init(): Promise<void> {
   el.name.textContent = EXTENSION_NAME;
   currentDomain = await activeTabDomain();
@@ -316,6 +338,7 @@ async function init(): Promise<void> {
     refreshRecent(),
     refreshUndo(),
   ]);
+  el.reviewCard.hidden = !(await shouldShowReviewPrompt());
 }
 
 void init();

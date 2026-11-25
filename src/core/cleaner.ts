@@ -1,4 +1,5 @@
 import { domainForHost } from "./domain.ts";
+import { noteSweep } from "./reviewPrompt.ts";
 import { describeCookies, recordSweep, type SweepTrigger } from "./history.ts";
 import { getRuleFor, partitionByRule } from "./rules.ts";
 import { partitionBySession } from "./sessionCookies.ts";
@@ -140,6 +141,7 @@ export async function cleanDomainFull(
       cookies: describeCookies(removed, domain),
     });
     await stashSweep(record.id, domain, removed);
+    await noteSweep();
   }
   return removed.length;
 }
@@ -194,6 +196,7 @@ export async function cleanAllCookiesExcept(
       cookies: describeCookies(removed, null),
     });
     await stashSweep(record.id, null, removed);
+    await noteSweep();
   }
   return removed.length;
 }

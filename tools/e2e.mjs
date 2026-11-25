@@ -371,6 +371,47 @@ test("popup offers undo right after a sweep", async ({ page, extId }) => {
   );
 });
 
+// --- review prompt: timing, once-only, "Don't ask again" ---
+
+test("review prompt follows its timing and respects the answers", async ({ page, extId }) => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const seen = async (state) => {
+    await page.evaluate((s) => chrome.storage.local.set({ reviewPrompt: s }), state);
+    const popup = await page.context().newPage();
+    await popup.goto(`chrome-extension://${extId}/popup/popup.html`);
+    await popup.waitForTimeout(400);
+    const visible = await popup.locator("#review-card").isVisible();
+    return { popup, visible };
+  };
+  const old = Date.now() - 8 * DAY;
+  let r = await seen({ installedAt: Date.now(), sweeps: 50, status: "pending" });
+  assert(!r.visible, "prompt shown on a fresh install");
+  await r.popup.close();
+  r = await seen({ installedAt: old, sweeps: 5, status: "pending" });
+  assert(!r.visible, "prompt shown before enough real use");
+  await r.popup.close();
+  r = await seen({ installedAt: old, sweeps: 20, status: "pending" });
+  assert(r.visible, "prompt not shown after 7 days and 20 sweeps");
+  const href = await r.popup.locator("#review-go").getAttribute("href");
+  assert(href.endsWith("/reviews"), `review link wrong: ${href}`);
+  await r.popup.locator("#review-never").click();
+  await r.popup.close();
+  r = await seen(
+    await page.evaluate(async () => (await chrome.storage.local.get("reviewPrompt")).reviewPrompt),
+  );
+  assert(!r.visible, "prompt returned after Don't ask again");
+  await r.popup.close();
+  r = await seen({ installedAt: old, sweeps: 20, status: "pending" });
+  await r.popup.locator("#review-later").click();
+  await r.popup.close();
+  r = await seen(
+    await page.evaluate(async () => (await chrome.storage.local.get("reviewPrompt")).reviewPrompt),
+  );
+  assert(!r.visible, "prompt returned before 30 days after Not now");
+  await r.popup.close();
+  await page.evaluate(() => chrome.storage.local.remove("reviewPrompt"));
+});
+
 // --- phases 3-5: pro features and the entitlement gate ---
 
 const grantPro = (page) =>
